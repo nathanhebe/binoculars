@@ -137,7 +137,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #align-hint button { margin-left: 8px; padding: 4px 12px; border-radius: 14px; border: 0; background: var(--accent); color: #111; }
 #toast { font-size: 13px; }
 
-/* Messages, the Align hint and the place-name line stack just above the controls, in front of
+/* Messages, the label-fix hint and the place-name line stack just above the controls, in front of
    the sheets so they are never covered. */
 #notices {
   position: fixed; left: 16px; right: 16px; bottom: calc(var(--safe-bottom) + 82px); z-index: 6;

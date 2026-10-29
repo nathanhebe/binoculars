@@ -325,6 +325,8 @@ function listenOrientation() {
       return; // relative-only orientation with no compass: useless for pointing
     }
     view.sensor = true;
+    // Fixing labels nudges the compass, so it is offered only once there is one.
+    $('align-btn').hidden = false;
     view.axes = smoothAxes(view.axes, raw, view.rawSeen ? 0.3 : 1);
     view.rawSeen = true;
   });
@@ -840,13 +842,7 @@ function setAligning(on) {
   show('align-hint', on);
   if (!on) saveSettings();
 }
-$('align-btn').addEventListener('click', () => {
-  if (!view.sensor) {
-    toast('Align fine-tunes the compass on a phone. Here, just drag to look around.');
-    return;
-  }
-  setAligning(!view.aligning);
-});
+$('align-btn').addEventListener('click', () => setAligning(!view.aligning));
 $('align-done').addEventListener('click', () => setAligning(false));
 
 $('settings-btn').addEventListener('click', () => {

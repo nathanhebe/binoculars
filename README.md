@@ -20,7 +20,7 @@ full screen.
   Tap the card, or any label, for its distance, height and links to Wikipedia and Google Maps.
 - The round button in the bottom-right corner zooms: each tap steps 1×, 2×, 4×, 8× and back to
   1×. Pinch works too.
-- If labels sit a little off the real thing, tap **Align**, drag until the dotted skyline lies on
+- If labels sit a little off the real thing, tap **Fix labels**, drag until the dotted skyline lies on
   the real one, then **Done**. The correction is remembered.
 - On a balcony or tower, raise *Your height above the ground* in Settings.
 - No phone? **Try the demo: Spain → Africa** looks from Marbella across to Morocco; drag or use

@@ -326,6 +326,13 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   check('demo button opens facing Africa with Jebel Musa under the reticle', demo[0] === 'Jebel Musa' && demo[1] === 'Morocco', `card ${demo[0]}, banner ${demo[1]} :: ${ls.join(', ')}`);
 
   // 8. Android compass path: absolute orientation events steer the view.
+  // Fault: with no motion sensor the align button was still offered, and tapping it only said
+  // it does nothing here. It appears once a compass does, named for what it does.
+  const fixBtn = () => st(() => {
+    const b = document.getElementById('align-btn');
+    return { shown: b.checkVisibility(), text: b.textContent };
+  });
+  const noSensor = await fixBtn();
   await p.evaluate(() => {
     const fire = (alpha) => { const e = new DeviceOrientationEvent('deviceorientationabsolute', { alpha, beta: 90, gamma: 0, absolute: true }); dispatchEvent(e); };
     for (let i = 0; i < 30; i++) fire(90);
@@ -333,6 +340,8 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await p.waitForTimeout(300);
   const android = await readout();
   check('Android: phone upright, alpha 90 → facing west', /W 27\d°/.test(android) || android.startsWith('W '), android);
+  const withSensor = await fixBtn();
+  check('"Fix labels" is offered only once there is a compass', !noSensor.shown && withSensor.shown && withSensor.text === 'Fix labels', JSON.stringify({ noSensor, withSensor }));
   await p.click('#align-btn');
   check('Align mode turns on with a compass', await st(() => window.__binoculars.view.aligning === true));
   await p.mouse.move(300, 400); await p.mouse.down(); await p.mouse.move(250, 400, { steps: 5 }); await p.mouse.up();
