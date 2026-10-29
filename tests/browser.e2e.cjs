@@ -162,6 +162,14 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   check('field of view setting applies', await st(() => window.__binoculars.settings.fov === 80));
   await p.click('#reset-align');
   check('reset alignment confirms', (await p.textContent('#toast')) === 'Alignment reset.');
+  // Fault: messages sit over the country banner at the top, and under any open sheet.
+  const placed = await st(() => {
+    const t = document.getElementById('toast').getBoundingClientRect();
+    const hud = document.getElementById('hud').getBoundingClientRect();
+    const hit = document.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2);
+    return { gap: Math.round(hud.top - t.bottom), onTop: !!hit?.closest('#toast') };
+  });
+  check('messages sit just above the controls, in front of the open settings', placed.gap >= 0 && placed.gap <= 48 && placed.onTop, JSON.stringify(placed));
   await p.$eval('#hag', (el) => { el.value = 2; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); });
   await p.$eval('#fov', (el) => { el.value = 64; el.dispatchEvent(new Event('input')); });
   await p.waitForFunction(() => window.__binoculars.world.placesDone, null, { timeout: 120000 });
