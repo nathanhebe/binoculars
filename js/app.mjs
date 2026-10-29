@@ -7,7 +7,7 @@ import { axesFrom, cameraAxes, direction, headingOf, pitchOf, turn } from './ori
 const RANGE_KM = 150;
 const HORIZON_STEP = 0.25; // degrees between skyline rays
 const MAX_LABELS = 28;
-const DEMO = { lat: 36.5068, lon: -4.886, heading: 222, pitch: 0.3 }; // Marbella seafront, facing the Strait
+const DEMO = { lat: 36.5068, lon: -4.886, heading: 215, pitch: 0.3 }; // Marbella seafront, facing the Strait
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);

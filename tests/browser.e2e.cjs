@@ -192,7 +192,8 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await p.click('#demo-btn');
   await ready();
   ls = await labels();
-  check('demo button opens the Marbella view facing Africa', ls.includes('Jebel Musa'), ls.join(', '));
+  const demo = await st(() => [document.querySelector('#target:not([hidden]) .t-name')?.textContent ?? '', document.getElementById('banner-country').textContent]);
+  check('demo button opens facing Africa with Jebel Musa under the reticle', demo[0] === 'Jebel Musa' && demo[1] === 'Morocco', `card ${demo[0]}, banner ${demo[1]} :: ${ls.join(', ')}`);
 
   // 8. Android compass path: absolute orientation events steer the view.
   await p.evaluate(() => {
