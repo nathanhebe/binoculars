@@ -226,7 +226,7 @@ async function computePlaces(places, gen) {
     const k = KINDS[p.kind];
     const top =
       p.kind === 'peak' ? Math.max(p.ele ?? 0, ground) : Math.max(ground, p.ele ?? 0) + (p.height ?? k.rise);
-    const los = lineOfSight(terrain.elev, world.lat, world.lon, world.eye, p.lat, p.lon, top);
+    const los = lineOfSight(terrain.elev, world.lat, world.lon, world.eye, p.lat, p.lon, top, { peak: p.kind === 'peak' });
     if (los.d > RANGE_KM * 1000) continue;
     const c = countryAt(p.lat, p.lon);
     let score = k.rank;

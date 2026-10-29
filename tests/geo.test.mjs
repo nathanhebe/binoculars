@@ -43,13 +43,24 @@ test('a ridge hides a town behind it, but not one in front', () => {
   assert.equal(before.visible, true);
 });
 
+// Fault: the line of sight stops 3% short for every place, so a far town just behind a ridge
+// shows as visible. Edge: a ridge 1 km in front of a village 50 km away (inside the 1.5 km gap).
+test('a far village close behind a ridge is hidden', () => {
+  const [lat0, lon0] = [37, -4];
+  const vLat = lat0 + 50000 / 111320;
+  const ridge = (lat) => (Math.abs(lat - (vLat - 1000 / 111320)) < 0.002 ? 900 : 100);
+  const los = lineOfSight(ridge, lat0, lon0, 600, vLat, lon0, 112);
+  assert.equal(los.visible, false);
+  assert.equal(los.blockedBy, 'terrain');
+});
+
 test('a summit is not hidden by the terrain data right beside it', () => {
   // Coarse terrain data often puts the ground just in front of a summit a little above the
   // summit's tagged height; that must not count as hiding it.
   const [lat0, lon0] = [37, -4];
   const summitLat = lat0 + 10000 / 111320;
   const ground = (lat) => (lat > summitLat - 100 / 111320 ? 1015 : 0);
-  assert.equal(lineOfSight(ground, lat0, lon0, 2, summitLat, lon0, 1000).visible, true);
+  assert.equal(lineOfSight(ground, lat0, lon0, 2, summitLat, lon0, 1000, { peak: true }).visible, true);
 });
 
 test('skyline over open sea sits just below level, at the geometric horizon', () => {

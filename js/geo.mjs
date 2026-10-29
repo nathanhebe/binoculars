@@ -91,12 +91,13 @@ export function horizonAlong(elev, lat, lon, eye, brg, maxD, startD = 60) {
 // Is a target `top` metres above sea level at (tLat, tLon) visible from the viewer?
 // Returns its apparent angle, whether it clears everything in front of it, and the height of
 // whatever blocks it (sea level means the earth's curve hides it).
-export function lineOfSight(elev, lat, lon, eye, tLat, tLon, top, startD = 60) {
+export function lineOfSight(elev, lat, lon, eye, tLat, tLon, top, { peak = false, startD = 60 } = {}) {
   const d = distance(lat, lon, tLat, tLon);
   const brg = bearing(lat, lon, tLat, tLon);
   const angle = apparentAngle(eye, top, d);
-  // Stop short of the target so its own slopes don't count as blocking it.
-  const end = Math.min(d * 0.97, d - 150);
+  // Stop short of the target so its own slopes don't count as blocking it. A summit's tagged
+  // height can sit below the coarse terrain around it, so peaks get a wider gap.
+  const end = peak ? Math.min(d * 0.97, d - 150) : d - 150;
   const [dLat, dLon] = rayDeltas(lat, brg);
   let block = -90;
   let blockH = 0;
