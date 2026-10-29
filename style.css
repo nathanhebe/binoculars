@@ -176,8 +176,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; max-height: 75%; overflow: auto; z-index: 5;
   padding: 18px 18px calc(var(--safe-bottom) + 18px); border-radius: 18px 18px 0 0;
-  background: var(--panel); -webkit-user-select: text; user-select: text; touch-action: pan-y;
+  background: #0f1626; -webkit-user-select: text; user-select: text; touch-action: pan-y;
 }
+/* An open sheet stands alone: the bar, the card and the empty-view note step out of the way.
+   visibility, not display, so the bar keeps its place and messages still sit just above it. */
+body.sheet-open #hud, body.sheet-open #target, body.sheet-open #reticle, body.sheet-open #empty { visibility: hidden; }
 .sheet h2 { margin: 0 36px 2px 0; font-size: 21px; }
 .sheet .close {
   position: absolute; right: 12px; top: 12px; width: 32px; height: 32px; border-radius: 50%;

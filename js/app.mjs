@@ -43,6 +43,8 @@ const view = {
 // ---------- start-up ----------
 function show(id, on = true) {
   $(id).hidden = !on;
+  // While a sheet is open the controls and the card step out of the way (see style.css).
+  document.body.classList.toggle('sheet-open', !$('info').hidden || !$('settings').hidden);
 }
 function toast(msg, ms = 5000) {
   const t = $('toast');

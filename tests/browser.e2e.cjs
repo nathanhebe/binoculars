@@ -146,12 +146,23 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   }));
   check('tapping a label opens its details', info.open && info.name === 'Jebel Musa' && /km/.test(info.dist) && /google/.test(info.map), JSON.stringify(info));
   await p.screenshot({ path: `${OUT}/3-info.png` });
+  // Fault: the sheet was see-through and the bottom bar showed round it, so the page read as
+  // two layers at once. An open sheet is solid and the controls step out of the way.
+  const sheetLook = (id) => st((i) => ({
+    hud: document.getElementById('hud').checkVisibility({ visibilityProperty: true }),
+    bg: getComputedStyle(document.getElementById(i)).backgroundColor,
+  }), id);
+  const infoLook = await sheetLook('info');
   await p.click('#info .close');
   check('details close', await st(() => document.getElementById('info').hidden));
+  const afterInfo = await sheetLook('info');
+  check('the details sheet is solid and the controls hide until it closes', !infoLook.hud && /^rgb\(/.test(infoLook.bg) && afterInfo.hud, JSON.stringify({ open: infoLook, closed: afterInfo.hud }));
 
   // 5. Settings.
   await p.click('#settings-btn');
   check('settings open', await st(() => !document.getElementById('settings').hidden));
+  const settingsLook = await sheetLook('settings');
+  check('the settings sheet is solid and the controls hide', !settingsLook.hud && /^rgb\(/.test(settingsLook.bg), JSON.stringify(settingsLook));
   await p.screenshot({ path: `${OUT}/4-settings.png` });
   const hiddenBefore = await p.$$eval('.label.hidden-place:not([hidden])', (l) => l.length);
   await p.check('#show-hidden');
