@@ -81,7 +81,8 @@ test('zoomed in, the plan reaches 16 km down a narrow wedge', () => {
   assert.equal(poiRange(1), 4);
   assert.equal(poiRange(4), 16);
   assert.equal(poiRange(8), 16);
-  // 8× on a phone: the view is about 4° wide either side.
+  // A wedge about 1.1° either side at 8×. The app asks for (17 + 5) / 8 ≈ 2.8° on a portrait
+  // phone, which plans the same 9 tiles here; this test does not call the app's formula.
   const plan = poiPlan(36.5068, -4.886, 268, 4 / 8 + 5 / 8, 8);
   assert.ok(Math.max(...plan.map((t) => t.d)) > 14, 'reaches past 14 km');
   assert.ok(plan.length <= 12, `${plan.length} tiles`);
