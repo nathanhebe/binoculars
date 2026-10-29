@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadPlaces, withMajor } from '../js/places.mjs';
+import { dedupe, loadPlaces, withMajor } from '../js/places.mjs';
 
 // Fault: the saved place list is reused after the viewer has moved far enough that nearby
 // hamlets and viewpoints (only asked for within 12 km) fall outside it. Edge: a few km move.
@@ -40,6 +40,27 @@ test('a bundled town gives way to the same town from OpenStreetMap', () => {
     { id: 'ne3', name: 'Tetouan', lat: 35.6685, lon: -5.3684 }, // ~10 km away
   ];
   assert.deepEqual(withMajor(osm, major).map((p) => p.id), ['n1', 'ne2', 'ne3']);
+});
+
+// Fault: one summit labelled twice because two mappers spelt it differently ("Jbel Musa",
+// "Jebel Musa"). Edges: 2.9 km apart still collapses, the same name 5 km away is a different
+// place, an accent, capitals or a "Pico" prefix make no difference, and a bare "Monte" stays.
+test('near-identical names within 3 km collapse to the better one', () => {
+  const at = (id, name, km) => ({ id, name, lat: 35.9 + km / 111.2, lon: -5.4 });
+  const best = [
+    at('a', 'Jebel Musa', 0),
+    at('b', 'Jbel Musa', 1),
+    at('c', 'Djebel Musa', 2.9),
+    at('d', 'Jebel Musa', 5),
+    at('e', 'Pico Veleta', 10),
+    at('f', 'Veleta', 11),
+    at('g', 'Málaga', 20),
+    at('h', 'MALAGA', 20.5),
+    at('i', 'Musa', 0.5), // no prefix stripped from a bare name: still the same mountain
+    at('j', 'Monte', 30), // a prefix with nothing after it is a name of its own
+    at('k', 'Mount Monte', 30.2),
+  ];
+  assert.deepEqual(dedupe(best).map((p) => p.id), ['a', 'd', 'e', 'g', 'j']);
 });
 
 // Fault: a server that accepts the request and never answers holds that part for over two

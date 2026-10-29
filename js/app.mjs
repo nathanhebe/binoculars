@@ -1,6 +1,6 @@
-import { angleDiff, apparentAngle, compass, distance, horizonAlong, lineOfSight } from './geo.mjs';
+import { angleDiff, apparentAngle, compass, horizonAlong, lineOfSight } from './geo.mjs';
 import { Terrain } from './terrain.mjs';
-import { KINDS, isMajor, loadMajorPlaces, loadPlaces, withMajor } from './places.mjs';
+import { KINDS, dedupe, isMajor, loadMajorPlaces, loadPlaces, withMajor } from './places.mjs';
 import { countryAt, loadCountries } from './countries.mjs';
 import { axesFrom, cameraAxes, direction, headingOf, pitchOf, turn } from './orientation.mjs';
 
@@ -285,15 +285,7 @@ async function computePlaces(places, gen) {
     if (i % 150 === 149) await yieldToUI();
   }
   out.sort((a, b) => b.score - a.score);
-  // OpenStreetMap sometimes maps one summit or town twice; keep the best-scored of each name
-  // within 2 km.
-  const seen = new Map();
-  const unique = out.filter((p) => {
-    const twins = seen.get(p.name) ?? [];
-    if (twins.some((q) => distance(p.lat, p.lon, q.lat, q.lon) < 2000)) return false;
-    seen.set(p.name, [...twins, p]);
-    return true;
-  });
+  const unique = dedupe(out);
   // A newer part or a height change may have finished first; only the latest list wins.
   if (gen === world.gen && places === world.items) world.places = unique;
 }

@@ -151,6 +151,22 @@ export function withMajor(items, major) {
   return [...items, ...extra];
 }
 
+// "Jbel Musa", "Jebel Musa" and "Musa" are one mountain: drop a leading word for mountain.
+const twinKey = (s) => nameKey(s).trim().replace(/^(jbel|jebel|djebel|pico|monte|mount|mt\.?)\s+(?=\S)/, '');
+
+// OpenStreetMap sometimes maps one summit or town twice, spelt a little differently; keep the
+// first (best) of each name within 3 km. `places` must be sorted best first.
+export function dedupe(places) {
+  const seen = new Map();
+  return places.filter((p) => {
+    const k = twinKey(p.name);
+    const twins = seen.get(k) ?? [];
+    if (twins.some((q) => distance(p.lat, p.lon, q.lat, q.lon) < 3000)) return false;
+    seen.set(k, [...twins, p]);
+    return true;
+  });
+}
+
 function readCache(lat, lon) {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE_KEY));
