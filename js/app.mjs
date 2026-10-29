@@ -426,10 +426,118 @@ function frame() {
   const pitch = pitchOf(axes.forward) - settings.calibPitch;
 
   if (settings.showSkyline || view.aligning) drawSkyline(project, W);
-  drawLabels(project, W, H);
+  const target = pickTarget(project, W, H, performance.now());
+  const cardY = placeReticle(target, W, H);
+  // Keep labels off the card under the reticle.
+  drawLabels(project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66]);
   updateReadout(heading, pitch);
+  if (world.horizon.length) updateCard(target, scanSkyline(heading));
   requestAnimationFrame(frame);
 }
+
+// ---------- target lock: what the reticle is pointing at ----------
+const LOCK_PX = 56; // how near the centre a place's dot must be, at 1×
+const LOCK_HOLD_MS = 300;
+const lock = { id: null, p: null, pt: null, since: 0, seen: 0 };
+
+// The visible place whose dot is nearest the centre, within LOCK_PX (a little more when zoomed
+// in, though less in degrees). A target is kept for LOCK_HOLD_MS unless another is clearly
+// closer, so a shaking hand does not make it flicker between two.
+function pickTarget(project, W, H, now) {
+  const r = LOCK_PX * Math.sqrt(view.zoom);
+  let best = null;
+  let bestPt = null;
+  let bestD = Infinity;
+  let cur = null;
+  let curPt = null;
+  let curD = Infinity;
+  for (const p of world.places) {
+    if (!p.visible) continue;
+    const pt = project(p.brg, p.angle);
+    if (!pt) continue;
+    const d = Math.hypot(pt[0] - W / 2, pt[1] - H / 2);
+    if (p.id === lock.id) [cur, curPt, curD] = [p, pt, d];
+    if (d < bestD) [best, bestPt, bestD] = [p, pt, d];
+  }
+  if (cur && curD <= r) lock.seen = now;
+  const held = cur && now - lock.seen < LOCK_HOLD_MS;
+  const better =
+    best && bestD <= r && best.id !== lock.id &&
+    (!held || bestD < curD * 0.6 || (now - lock.since > LOCK_HOLD_MS && bestD < curD * 0.85));
+  if (better) Object.assign(lock, { id: best.id, p: best, pt: bestPt, since: now, seen: now });
+  else if (held) Object.assign(lock, { p: cur, pt: curPt });
+  else Object.assign(lock, { id: null, p: null, pt: null });
+  return lock.id ? lock : null;
+}
+
+// Ring at the centre, or brackets round the target's dot; returns where the card goes.
+let lockedId = null;
+function placeReticle(target, W, H) {
+  const el = $('reticle');
+  const id = target?.id ?? null;
+  if (id !== lockedId) {
+    lockedId = id;
+    el.classList.remove('locked');
+    if (id) {
+      void el.offsetWidth; // restart the snap for each new target
+      el.classList.add('locked');
+    }
+  }
+  const [x, y] = target ? target.pt : [W / 2, H / 2];
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  if (target) {
+    ctx.fillStyle = '#ffcf4a';
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const cardY = Math.max(H / 2 + 24, y + 24);
+  $('target').style.top = `${cardY}px`;
+  return cardY;
+}
+
+// The skyline under the reticle, widened by ±3° (less when zoomed) so a wobbling hand does not
+// flip the answer: the highest land ray in that window, and the ray straight ahead.
+function scanSkyline(heading) {
+  const span = 3 / view.zoom;
+  let land = null;
+  for (let a = -span; a <= span + 1e-9; a += HORIZON_STEP) {
+    const s = skylineAt(heading + a);
+    if (s.h > 2 && (!land || s.angle > land.angle)) land = s;
+  }
+  return { land, ahead: skylineAt(heading) };
+}
+
+// Card under the reticle: the target place, or failing that the land or sea straight ahead.
+let lastCardKey = '';
+function updateCard(target, scan) {
+  const el = $('target');
+  let lines;
+  if (target) {
+    const p = target.p;
+    const meta = [KINDS[p.kind].label];
+    if (p.kind === 'peak' && p.top) meta.push(`${Math.round(p.top)} m`);
+    meta.push(formatKm(p.d));
+    lines = [p.name, meta.join(' · '), [p.country, p.continent].filter(Boolean).join(' · ')];
+  } else if (scan.land) {
+    const s = scan.land;
+    const c = s.land?.country;
+    const far = c && (c !== world.home?.country || s.d >= 20000);
+    lines = [`${far ? c : s.h > 1500 ? 'Mountains' : 'Hills'} · ${formatKm(s.d)}`, '', ''];
+  } else {
+    lines = [`Open sea · horizon ${formatKm(scan.ahead.d)}`, '', ''];
+  }
+  const key = `${target ? 'p' : 's'}|${lines.join('|')}`;
+  if (key === lastCardKey) return;
+  lastCardKey = key;
+  el.classList.toggle('sky', !target);
+  [...el.children].forEach((span, i) => (span.textContent = lines[i]));
+  el.hidden = false;
+}
+$('target').addEventListener('click', () => {
+  if (lock.p && !dragMoved) openInfo(lock.p);
+});
 
 function drawSkyline(project, W) {
   ctx.strokeStyle = view.aligning ? 'rgba(255, 207, 74, 0.95)' : 'rgba(255, 255, 255, 0.55)';
@@ -449,13 +557,14 @@ function drawSkyline(project, W) {
   ctx.setLineDash([]);
 }
 
-function drawLabels(project, W, H) {
-  const placed = [];
+function drawLabels(project, W, H, target, reserved) {
+  const placed = [reserved];
   const used = new Set();
   const top = 96; // keep clear of the country banner
   for (const p of world.places) {
-    if (placed.length >= MAX_LABELS) break;
+    if (placed.length > MAX_LABELS) break;
     if (!p.visible && !settings.showHidden) continue;
+    if (p.id === target?.id) continue; // the card under the reticle names it
     const pt = project(p.brg, p.angle);
     if (!pt) continue;
     const [sx, sy] = pt;

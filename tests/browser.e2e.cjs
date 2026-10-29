@@ -47,7 +47,9 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   const banner = await p.$$eval('#banner > div', (d) => d.map((x) => x.textContent));
   check('banner says Africa / Morocco facing Jebel Musa', banner[0] === 'AFRICA' && banner[1] === 'Morocco', banner.join(' | '));
   let ls = await labels();
-  check('Jebel Musa and Rock of Gibraltar labelled', ls.includes('Jebel Musa') && ls.includes('Rock of Gibraltar'), ls.join(', '));
+  // Jebel Musa sits under the reticle, so the card names it and its own label steps aside.
+  const aimed = await st(() => document.querySelector('#target:not([hidden]) .t-name')?.textContent ?? '');
+  check('reticle card names Jebel Musa, Rock of Gibraltar labelled', aimed === 'Jebel Musa' && !ls.includes('Jebel Musa') && ls.includes('Rock of Gibraltar'), `card ${aimed} :: ${ls.join(', ')}`);
   check('no duplicate labels', new Set(ls).size === ls.length, ls.join(', '));
   await p.screenshot({ path: `${OUT}/1-africa.png` });
 
@@ -87,8 +89,9 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   check('pinch out zooms in', pinched > 2.5 && pinched < 3.5, `zoom ${pinched.toFixed(2)}`);
   await p.click('#zooms button[data-zoom="1"]');
 
-  // 4. Tap a label: info sheet.
-  await p.goto(BASE + '?lat=36.5068&lon=-4.886&heading=215&pitch=0.3&nocam=1&autostart=1');
+  // 4. Tap a label: info sheet. Faced a few degrees off Jebel Musa so the reticle is not on it
+  // and it keeps its label.
+  await p.goto(BASE + '?lat=36.5068&lon=-4.886&heading=222&pitch=0.3&nocam=1&autostart=1');
   await ready();
   const musa = p.locator('.label:not([hidden])', { hasText: 'Jebel Musa' }).first();
   await musa.click();

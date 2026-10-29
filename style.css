@@ -48,10 +48,41 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #banner-note { font-size: 12px; color: var(--muted); }
 #banner-note:empty { display: none; }
 
+/* A ring at the centre; locked on a place it turns yellow and becomes four corner brackets
+   around that place's dot. */
 #reticle {
   position: fixed; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px;
   border: 2px solid rgba(255, 255, 255, 0.7); border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
+#reticle i {
+  position: absolute; width: 10px; height: 10px; border: 0 solid var(--accent); opacity: 0;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+#reticle i:nth-child(1) { left: 0; top: 0; border-width: 2px 0 0 2px; }
+#reticle i:nth-child(2) { right: 0; top: 0; border-width: 2px 2px 0 0; }
+#reticle i:nth-child(3) { left: 0; bottom: 0; border-width: 0 0 2px 2px; }
+#reticle i:nth-child(4) { right: 0; bottom: 0; border-width: 0 2px 2px 0; }
+#reticle.locked {
+  width: 34px; height: 34px; margin: -17px 0 0 -17px; border-color: transparent; box-shadow: none;
+  animation: snap 0.16s ease-out;
+}
+#reticle.locked i { opacity: 1; }
+@keyframes snap { from { transform: scale(1.4); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
+
+/* What the reticle is on: no box, a dark halo keeps it readable over sky or sea. */
+#target {
+  position: fixed; left: 50%; top: 50%; transform: translateX(-50%); max-width: calc(100% - 32px);
+  padding: 2px 8px; border: 0; background: none; text-align: center; white-space: nowrap;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+#target span { display: block; overflow: hidden; text-overflow: ellipsis; }
+#target span:empty { display: none; }
+#target .t-name { font-size: 18px; font-weight: 600; }
+#target .t-meta { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #dfe5f0; }
+#target .t-where { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+#target.sky { pointer-events: none; }
+#target.sky .t-name { font-size: 14px; font-weight: 500; color: #dfe5f0; }
 
 #hud {
   position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(var(--safe-bottom) + 12px);
