@@ -431,7 +431,11 @@ function frame() {
   // Keep labels off the card under the reticle.
   drawLabels(project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66]);
   updateReadout(heading, pitch);
-  if (world.horizon.length) updateCard(target, scanSkyline(heading));
+  if (world.horizon.length) {
+    const scan = scanSkyline(heading);
+    updateCard(target, scan);
+    updateBanner(target, scan);
+  }
   requestAnimationFrame(frame);
 }
 
@@ -601,35 +605,40 @@ function drawLabels(project, W, H, target, reserved) {
   for (const [id, el] of labelEls) if (!used.has(id)) el.hidden = true;
 }
 
-let lastBannerKey = '';
 function updateReadout(heading, pitch) {
   $('heading').textContent = `${compass(heading)} ${Math.round(heading)}°`;
   $('pitch').textContent = `${pitch >= 0 ? '↑' : '↓'} ${Math.abs(pitch).toFixed(1)}°`;
-  if (!world.horizon.length) return;
-  const s = skylineAt(heading);
-  const key = `${s.land?.country}|${s.beyond?.country}|${Math.round(s.d / 1000)}`;
+}
+
+// Continent big, then the country and at most one short note. It agrees with the card: the
+// target's country when one is locked, else the highest land within the reticle's window.
+let lastBannerKey = '';
+function updateBanner(target, { land, ahead }) {
+  let continent;
+  let country;
+  if (target?.p.country) {
+    continent = target.p.continent ?? '';
+    country = target.p.country;
+  } else if (land) {
+    continent = land.land?.continent ?? '';
+    country = land.land?.country ?? 'Land';
+  } else {
+    continent = 'Open sea';
+    country = '';
+  }
+  if (!continent) [continent, country] = [country, ''];
+  const beyond = (land ?? ahead).beyond?.country;
+  let note = '';
+  if (view.sensor && view.compassAccuracy != null && (view.compassAccuracy < 0 || view.compassAccuracy > 25)) {
+    note = 'Compass unsure: wave phone in a figure-8';
+  } else if (beyond && beyond !== country && beyond !== continent && beyond !== target?.p.country) {
+    note = `${beyond} beyond · below the horizon`;
+  } else if (land && land.d > 5000) {
+    note = `Skyline ${formatKm(land.d)}`;
+  }
+  const key = `${continent}|${country}|${note}`;
   if (key === lastBannerKey) return;
   lastBannerKey = key;
-  let continent = '';
-  let country = '';
-  let note = '';
-  if (s.land) {
-    continent = s.land.continent?.toUpperCase() ?? '';
-    country = s.land.country;
-    note = `Skyline ${formatKm(s.d)} away`;
-  } else if (s.h > 2) {
-    country = 'Land';
-    note = `Skyline ${formatKm(s.d)} away`;
-  } else {
-    country = 'Sea horizon';
-    note = `${formatKm(s.d)} away`;
-  }
-  if (s.beyond && s.beyond.country !== s.land?.country) {
-    note += ` · ${s.beyond.country} lies beyond, ${formatKm(s.landD)} away, out of sight`;
-  }
-  if (view.sensor && view.compassAccuracy != null && (view.compassAccuracy < 0 || view.compassAccuracy > 25)) {
-    note += ' · Compass unsure: wave the phone in a figure-8';
-  }
   $('banner-continent').textContent = continent;
   $('banner-country').textContent = country;
   $('banner-note').textContent = note;
@@ -789,7 +798,6 @@ $('hag').addEventListener('change', async () => {
     world.busy = false;
   }
   renderSettingValues();
-  lastBannerKey = '';
 });
 $('show-hidden').addEventListener('change', (e) => {
   settings.showHidden = e.target.checked;
@@ -810,7 +818,6 @@ $('reload-data').addEventListener('click', async () => {
   show('settings', false);
   toast('Reloading map data…', 0);
   await loadWorld(world.lat, world.lon, { fresh: true });
-  lastBannerKey = '';
   toast('Map data reloaded.');
 });
 
@@ -818,7 +825,6 @@ $('status-retry').addEventListener('click', async () => {
   if (world.lat == null || world.busy) return;
   placeStatus({ done: 0, total: 0 });
   await loadWorld(world.lat, world.lon, { fresh: true });
-  lastBannerKey = '';
 });
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

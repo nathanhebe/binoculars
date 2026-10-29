@@ -11,9 +11,9 @@ full screen.
 
 - **Start** asks for your camera, motion sensors and location. Hold the phone upright, pointing at
   the view.
-- The banner at the top names the continent and country of the skyline you're pointing at. Labels
-  show places you can actually see; things hidden by hills or the curve of the earth are left out
-  (Settings → *Show hidden places* greys them in).
+- The banner at the top names the continent and country you're pointing at, and a country hidden
+  beyond the horizon. Labels show places you can actually see; things hidden by hills or the curve
+  of the earth are left out (Settings → *Show hidden places* greys them in).
 - Tap a label for its distance, height and links to Wikipedia and Google Maps.
 - **1× – 8×** zooms the picture; pinch works too.
 - If labels sit a little off the real thing, tap **Align**, drag until the dotted skyline lies on

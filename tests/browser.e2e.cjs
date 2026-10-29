@@ -44,8 +44,9 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await p.evaluate(async (u) => { await navigator.serviceWorker.register(u); await navigator.serviceWorker.ready; }, BASE + 'sw.js');
   check("offline helper keeps other sites' caches", await p.evaluate(() => caches.has('another-site-v1')));
   await ready();
-  const banner = await p.$$eval('#banner > div', (d) => d.map((x) => x.textContent));
-  check('banner says Africa / Morocco facing Jebel Musa', banner[0] === 'AFRICA' && banner[1] === 'Morocco', banner.join(' | '));
+  const bannerText = (pg) => pg.$$eval(['#banner-continent', '#banner-country', '#banner-note'].join(','), (d) => d.map((x) => x.textContent));
+  const banner = await bannerText(p);
+  check('banner says Africa / Morocco facing Jebel Musa', banner[0] === 'Africa' && banner[1] === 'Morocco', banner.join(' | '));
   let ls = await labels();
   // Jebel Musa sits under the reticle, so the card names it and its own label steps aside.
   const aimed = await st(() => document.querySelector('#target:not([hidden]) .t-name')?.textContent ?? '');
@@ -181,9 +182,9 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   // 6. Looking north from the same spot: Spain.
   await p.goto(BASE + '?lat=36.5068&lon=-4.886&heading=0&pitch=2&nocam=1&autostart=1');
   await ready();
-  const bn = await p.$$eval('#banner > div', (d) => d.map((x) => x.textContent));
+  const bn = await bannerText(p);
   ls = await labels();
-  check('looking north: Europe / Spain with Spanish places', bn[0] === 'EUROPE' && bn[1] === 'Spain' && ls.length > 0, `${bn.join(' | ')} :: ${ls.join(', ')}`);
+  check('looking north: Europe / Spain with Spanish places', bn[0] === 'Europe' && bn[1] === 'Spain' && ls.length > 0, `${bn.join(' | ')} :: ${ls.join(', ')}`);
   await p.screenshot({ path: `${OUT}/5-north.png` });
 
   // 7. Demo button from a cold start.
@@ -228,8 +229,8 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   check('iPhone: compass heading 215 → view faces SW 215°', /SW 21[4-6]°/.test(iosHead), iosHead);
   await ios.waitForFunction(() => window.__binoculars.world.placesDone, null, { timeout: 60000 });
   await ios.waitForTimeout(500);
-  const iosBanner = await ios.$$eval('#banner > div', (d) => d.map((x) => x.textContent));
-  check('iPhone path: banner Africa / Morocco', iosBanner[1] === 'Morocco', iosBanner.join(' | '));
+  const iosBanner = await bannerText(ios);
+  check('iPhone path: banner Africa / Morocco', iosBanner[0] === 'Africa' && iosBanner[1] === 'Morocco', iosBanner.join(' | '));
   await ios.screenshot({ path: `${OUT}/6-iphone-sensor.png` });
 
   // 10. Install files.

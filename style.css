@@ -43,10 +43,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
   min-width: 220px; max-width: calc(100% - 32px); padding: 8px 16px; border-radius: 14px;
   background: var(--panel); text-align: center; pointer-events: none;
 }
-#banner-continent { font-size: 12px; letter-spacing: 0.18em; color: var(--accent); font-weight: 700; }
-#banner-country { font-size: 20px; font-weight: 700; }
-#banner-note { font-size: 12px; color: var(--muted); }
-#banner-note:empty { display: none; }
+/* Two lines at most: the continent, then the country and one short note, clipped not wrapped. */
+#banner-continent { font-size: 22px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#banner-line { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#banner-country { color: var(--accent); font-weight: 600; }
+#banner-note { color: var(--muted); }
+#banner-country:not(:empty) + #banner-note:not(:empty)::before { content: ' · '; }
 
 /* A ring at the centre; locked on a place it turns yellow and becomes four corner brackets
    around that place's dot. */
