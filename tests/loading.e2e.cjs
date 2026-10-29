@@ -62,8 +62,9 @@ const fewestLabels = async (p) => {
   await p.unroute(/\/interpreter|tiles\.openfreemap\.org/);
 
   // 2. Fault: when every server fails, a message says so and then goes, with no way to try
-  // again short of finding Reload in settings. Here every server answers 503.
-  const p2 = await ctx.newPage();
+  // again short of finding Reload in settings. Here every server answers 503. A fresh context,
+  // so no names the first page saved before it was cut off are on screen: only the bundled ones.
+  const p2 = await (await b.newContext({ viewport: { width: 430, height: 860 } })).newPage();
   p2.on('pageerror', (e) => errors.push(String(e)));
   let overpass = 0;
   await p2.route(/\/interpreter/, (r) => { overpass++; r.fulfill({ status: 503, body: 'busy' }); });
