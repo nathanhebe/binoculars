@@ -104,6 +104,29 @@ const check = (name, ok, detail = '') => {
   check('in Zermatt facing 200° the banner says Europe in two lines', bn.continent === 'Europe' && bn.country && bn.twoLines, bn.text);
   await p.screenshot({ path: `${OUT}/hud-zermatt-200.png` });
 
+  // 6. Turning must not shift the bottom bar: the heading readout keeps one width and one line,
+  // and every button stays on screen, here and on a 375 px phone.
+  for (const width of [430, 375]) {
+    await p.setViewportSize({ width, height: 860 });
+    const bar = [];
+    for (const h of [0, 8, 200, 292, 337]) {
+      await p.evaluate((x) => { window.__binoculars.view.heading = x; }, h);
+      await p.waitForFunction((x) => document.getElementById('heading').textContent.endsWith(` ${x}°`), h, { timeout: 5000 });
+      bar.push(await p.evaluate(() => {
+        const r = (id) => document.getElementById(id).getBoundingClientRect();
+        const hd = document.getElementById('heading');
+        return {
+          text: hd.textContent,
+          zooms: r('zooms').left,
+          oneLine: r('heading').height < parseFloat(getComputedStyle(hd).lineHeight) * 1.5 && hd.scrollWidth <= hd.clientWidth,
+          fits: r('readout').right <= r('zooms').left && r('tools').right <= window.innerWidth,
+        };
+      }));
+    }
+    check(`at ${width} px the bottom bar stays put and on screen as you turn`, bar.every((x) => x.zooms === bar[0].zooms && x.oneLine && x.fits), JSON.stringify(bar));
+  }
+  await p.setViewportSize({ width: 430, height: 860 });
+
   check('no page errors', errors.length === 0, errors.join(' | '));
   await b.close();
   console.log(`\n${results.filter(Boolean).length} of ${results.length} checks passed`);

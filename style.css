@@ -91,15 +91,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
 }
-#readout { font-variant-numeric: tabular-nums; min-width: 78px; }
-#heading { display: block; font-size: 18px; font-weight: 700; }
+/* A fixed width that holds the widest heading ("WNW 292°"), so the buttons never shift as you turn. */
+#readout { flex: none; width: 92px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#heading { display: block; font-size: 17px; font-weight: 700; }
 #pitch { display: block; font-size: 12px; color: var(--muted); }
-#zooms, #tools { display: flex; gap: 6px; }
+#zooms, #tools { display: flex; flex: none; gap: 6px; }
 #hud button {
   min-width: 42px; height: 40px; padding: 0 10px; border-radius: 20px; border: 0;
   background: rgba(20, 26, 40, 0.8);
 }
 #zooms button.on { background: var(--accent); color: #111; font-weight: 700; }
+/* Phones narrower than 430 px: tighten the bar so the fixed-width readout and every button fit. */
+@media (max-width: 429px) {
+  #hud { padding-left: 12px; padding-right: 12px; gap: 4px; }
+  #readout { width: 82px; }
+  #heading { font-size: 15px; }
+  #zooms, #tools { gap: 4px; }
+  #hud button { min-width: 38px; padding: 0 8px; }
+}
 #align-btn.on { background: var(--accent); color: #111; }
 
 #align-hint, #toast {
