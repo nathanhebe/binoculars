@@ -188,9 +188,12 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
       onPart: (items, done, total, failed) => {
         // A load for an earlier position can still be answering after a move.
         if (gen !== world.gen) return;
-        world.items = items;
+        // Keep the earlier places alongside each part until every part has loaded.
+        const ids = new Set(items.map((x) => x.id));
+        const shown = done < total || failed ? [...items, ...prev.filter((x) => !ids.has(x.id))] : items;
+        world.items = shown;
         then(async () => {
-          await computePlaces(items, gen);
+          await computePlaces(shown, gen);
           if (done < total) toast(`Loading place names ${done} / ${total}…`, 0);
           else if (failed) toast("Some place names didn't load — try Reload map data in settings.", 8000);
           else toast('Place names loaded.', 2000);

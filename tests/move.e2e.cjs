@@ -16,8 +16,8 @@ const C = { latitude: 36.5932, longitude: -4.886 }; // ~4.8 km further
   let phase = 'A';
   const held = [];
   const heldC = [];
-  const reply = (r, name) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ elements: [
-    { type: 'node', id: Math.floor(Math.random() * 1e9), lat: 36.45, lon: -4.95, tags: { place: 'town', name } }] }) });
+  const reply = (r, name, lat = 36.45) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ elements: [
+    { type: 'node', id: Math.floor(Math.random() * 1e9), lat, lon: -4.95, tags: { place: 'town', name } }] }) });
   await p.route(/\/interpreter/, (r) => {
     if (phase === 'A') return held.push(r);
     if (phase === 'B') return reply(r, 'Newtown');
@@ -52,8 +52,17 @@ const C = { latitude: 36.5932, longitude: -4.886 }; // ~4.8 km further
   console.log('names held after second move:', heldC.length, 'Newtown distance from B, then C:', atB, atC);
   const ok2 = heldC.length > 0 && atC > 0 && Math.abs(atC - atB) > 3000;
   console.log(ok2 ? 'PASS labels stay up, measured from the new position' : 'FAIL labels blank while new names load');
+
+  // Fault 3: the first new part to land replaces the kept list, so labels from the other parts
+  // go blank. Edge: one part of four lands, the rest are still held.
+  await reply(heldC.shift(), 'Fresh', 36.4);
+  await p.waitForFunction(() => window.__binoculars.world.places.some((x) => x.name === 'Fresh'), null, { timeout: 60000, polling: 200 });
+  const atC1 = await p.evaluate(() => window.__binoculars.world.places.map((x) => x.name));
+  const ok3 = atC1.includes('Newtown');
+  console.log('places after one new part lands:', JSON.stringify([...new Set(atC1)]));
+  console.log(ok3 ? 'PASS kept labels stay up while other parts load' : 'FAIL first part dropped the kept labels');
   for (const r of heldC) await r.abort();
   await ctx.close();
   await b.close();
-  process.exit(ok && ok2 ? 0 : 1);
+  process.exit(ok && ok2 && ok3 ? 0 : 1);
 })().catch((e) => { console.error(e.message); process.exit(2); });
