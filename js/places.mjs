@@ -1,5 +1,5 @@
-// Named places around the viewer from OpenStreetMap, via the Overpass API, plus towns and
-// cities bundled with the app to show while those servers answer.
+// Named places around the viewer from OpenStreetMap, via the Overpass API, plus towns, cities
+// and mountains bundled with the app to show while those servers answer.
 import { distance } from './geo.mjs';
 
 const ENDPOINTS = [
@@ -110,28 +110,41 @@ export function parse(json) {
   return out;
 }
 
-// Towns and cities from assets/places-major.json (built by tools/build-places.mjs) within range.
-// Never throws: without the file the app just waits for OpenStreetMap as before.
-let majorRows = null;
-export async function loadMajorPlaces(lat, lon, rangeKm) {
-  try {
-    majorRows ??= fetch(new URL('../assets/places-major.json', import.meta.url)).then((r) => {
-      if (!r.ok) throw new Error(`places-major.json: HTTP ${r.status}`);
+// Places bundled with the app, shown with no network at all: towns and cities from
+// assets/places-major.json (tools/build-places.mjs) and well-known mountains from
+// assets/peaks-major.json (tools/build-peaks.mjs), within range.
+// Never throws: without a file the app just waits for the network as before.
+const bundles = new Map();
+function bundle(file) {
+  if (!bundles.has(file)) {
+    const rows = fetch(new URL(`../assets/${file}`, import.meta.url)).then((r) => {
+      if (!r.ok) throw new Error(`${file}: HTTP ${r.status}`);
       return r.json();
     });
-    const { rows } = await majorRows;
-    const out = [];
-    const cosLat = Math.cos((lat * Math.PI) / 180);
-    rows.forEach(([name, pLat, pLon, population, k], i) => {
-      if (Math.hypot((pLat - lat) * 111.32, (pLon - lon) * 111.32 * cosLat) > rangeKm) return;
-      out.push({ id: `ne${i}`, name, kind: k === 'c' ? 'city' : 'town', lat: pLat, lon: pLon, ele: null, height: null, population, wikipedia: null });
-    });
-    return out;
-  } catch (err) {
-    majorRows = null;
-    console.warn(err);
-    return [];
+    bundles.set(file, rows);
+    rows.catch(() => bundles.delete(file)); // try again next time
   }
+  return bundles.get(file);
+}
+
+export async function loadMajorPlaces(lat, lon, rangeKm) {
+  const cosLat = Math.cos((lat * Math.PI) / 180);
+  const near = (pLat, pLon) => Math.hypot((pLat - lat) * 111.32, (pLon - lon) * 111.32 * cosLat) <= rangeKm;
+  const out = [];
+  const [towns, peaks] = await Promise.allSettled([bundle('places-major.json'), bundle('peaks-major.json')]);
+  if (towns.status === 'fulfilled')
+    towns.value.rows.forEach(([name, pLat, pLon, population, k], i) => {
+      if (near(pLat, pLon))
+        out.push({ id: `ne${i}`, name, kind: k === 'c' ? 'city' : 'town', lat: pLat, lon: pLon, ele: null, height: null, population, wikipedia: null });
+    });
+  else console.warn(towns.reason);
+  if (peaks.status === 'fulfilled')
+    peaks.value.rows.forEach(([name, pLat, pLon, ele], i) => {
+      if (near(pLat, pLon))
+        out.push({ id: `nep${i}`, name, kind: 'peak', lat: pLat, lon: pLon, ele, height: null, population: null, wikipedia: null });
+    });
+  else console.warn(peaks.reason);
+  return out;
 }
 
 // OpenStreetMap ids start n, w or r and a digit, so this marks the bundled entries.

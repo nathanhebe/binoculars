@@ -38,6 +38,10 @@ A static web app with no build step. On start it loads, for 150 km around you:
 - towns and cities bundled with the app (`assets/places-major.json`, from Natural Earth's
   populated places), shown in seconds while OpenStreetMap answers; rebuild it with
   `node tools/build-places.mjs`;
+- about 7,800 well-known mountains bundled the same way (`assets/peaks-major.json`, from
+  Wikidata: the best known in each half-degree square, judged by how many Wikipedias have an
+  article), so ranges such as the Alps, the Sierra Nevada and the Rif are named with no network;
+  rebuild it with `node tools/build-peaks.mjs`;
 - country borders from Natural Earth (`assets/countries.json`).
 
 Compass: `webkitCompassHeading` on iPhone, absolute device orientation on Android.
@@ -58,7 +62,7 @@ node --test tests/*.test.mjs
 ```
 
 The browser checks (`tests/browser.e2e.cjs`, `tests/move.e2e.cjs`, `tests/demo.e2e.cjs`,
-`tests/height.e2e.cjs`, `tests/loading.e2e.cjs`) need Playwright; see the top of each file.
+`tests/height.e2e.cjs`, `tests/loading.e2e.cjs`, `tests/speed.e2e.cjs`) need Playwright; see the top of each file.
 
 Data © OpenStreetMap contributors; terrain from Mapzen / AWS Terrain Tiles; borders from Natural
-Earth.
+Earth; mountain names from Wikidata (CC0).

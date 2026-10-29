@@ -4,7 +4,7 @@ const SHELL = 'binoculars-shell-v1';
 const TILES = 'binoculars-tiles-v1';
 const FILES = [
   './', 'index.html', 'style.css', 'manifest.webmanifest', 'assets/countries.json', 'assets/places-major.json',
-  'js/app.mjs', 'js/geo.mjs', 'js/terrain.mjs', 'js/places.mjs', 'js/countries.mjs', 'js/orientation.mjs',
+  'assets/peaks-major.json', 'js/app.mjs', 'js/geo.mjs', 'js/terrain.mjs', 'js/places.mjs', 'js/countries.mjs', 'js/orientation.mjs',
   'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-512.png',
 ];
 
