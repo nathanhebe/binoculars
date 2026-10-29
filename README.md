@@ -18,7 +18,8 @@ full screen.
   with **Show** to grey them in.
 - Point the centre ring at a place and it locks on, with the place named in a card underneath.
   Tap the card, or any label, for its distance, height and links to Wikipedia and Google Maps.
-- **1× – 8×** zooms the picture; pinch works too.
+- The round button in the bottom-right corner zooms: each tap steps 1×, 2×, 4×, 8× and back to
+  1×. Pinch works too.
 - If labels sit a little off the real thing, tap **Align**, drag until the dotted skyline lies on
   the real one, then **Done**. The correction is remembered.
 - On a balcony or tower, raise *Your height above the ground* in Settings.

@@ -34,7 +34,8 @@ const view = {
   offsetKnown: false,
   heading: 0, // manual mode
   pitch: 0,
-  zoom: 1,
+  zoom: 1, // what is drawn; it eases toward zoomTarget
+  zoomTarget: 1,
   aligning: false,
   compassAccuracy: null,
 };
@@ -431,6 +432,11 @@ function frame() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
 
+  if (view.zoom !== view.zoomTarget) {
+    view.zoom += (view.zoomTarget - view.zoom) * ZOOM_EASE;
+    if (Math.abs(view.zoomTarget - view.zoom) < 0.001) view.zoom = view.zoomTarget;
+    $('video').style.transform = `scale(${view.zoom})`;
+  }
   const axes = currentAxes();
   const f = focal(W, H);
   const project = projector(axes, f, W, H);
@@ -748,13 +754,15 @@ const pointers = new Map();
 let dragMoved = false;
 let pinchStart = null;
 
+// The picture eases toward the chosen zoom, this fraction of the way each frame.
+const ZOOM_EASE = 0.18;
+const ZOOM_STEPS = [1, 2, 4, 8];
 function setZoom(z) {
-  view.zoom = Math.min(10, Math.max(1, z));
-  $('video').style.transform = `scale(${view.zoom})`;
-  document.querySelectorAll('#zooms button').forEach((b) => {
-    b.classList.toggle('on', Math.abs(Number(b.dataset.zoom) - view.zoom) < 0.05);
-  });
+  view.zoomTarget = Math.min(10, Math.max(1, z));
+  $('zoom-btn').textContent = `${Math.round(view.zoomTarget * 10) / 10}×`;
 }
+// Each tap goes to the next step up, and from 8× (or beyond) back to 1×.
+$('zoom-btn').addEventListener('click', () => setZoom(ZOOM_STEPS.find((z) => z > view.zoomTarget + 0.05) ?? 1));
 
 addEventListener('pointerdown', (e) => {
   if (e.target.closest('.sheet, #hud, #align-hint, #notices, .sheet-full, #empty')) return;
@@ -762,7 +770,7 @@ addEventListener('pointerdown', (e) => {
   dragMoved = false;
   if (pointers.size === 2) {
     const [a, b] = [...pointers.values()];
-    pinchStart = { dist: Math.hypot(a[0] - b[0], a[1] - b[1]), zoom: view.zoom };
+    pinchStart = { dist: Math.hypot(a[0] - b[0], a[1] - b[1]), zoom: view.zoomTarget };
   }
 });
 addEventListener('pointermove', (e) => {
@@ -817,7 +825,6 @@ $('start-btn').addEventListener('click', () => {
   start(fixed);
 });
 $('demo-btn').addEventListener('click', () => start({ ...DEMO }));
-document.querySelectorAll('#zooms button').forEach((b) => b.addEventListener('click', () => setZoom(Number(b.dataset.zoom))));
 document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => show(b.dataset.close, false)));
 
 function setAligning(on) {

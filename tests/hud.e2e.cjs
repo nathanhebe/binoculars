@@ -117,13 +117,16 @@ const check = (name, ok, detail = '') => {
         const hd = document.getElementById('heading');
         return {
           text: hd.textContent,
-          zooms: r('zooms').left,
+          tools: r('tools').left,
           oneLine: r('heading').height < parseFloat(getComputedStyle(hd).lineHeight) * 1.5 && hd.scrollWidth <= hd.clientWidth,
-          fits: r('readout').right <= r('zooms').left && r('tools').right <= window.innerWidth,
+          // The round zoom button sits in the bottom-right corner, on screen.
+          fits: r('readout').right <= r('tools').left && !!document.getElementById('zoom-btn') &&
+            r('tools').right <= r('zoom-btn').left && r('zoom-btn').right <= window.innerWidth &&
+            r('zoom-btn').right > window.innerWidth - 40,
         };
       }));
     }
-    check(`at ${width} px the bottom bar stays put and on screen as you turn`, bar.every((x) => x.zooms === bar[0].zooms && x.oneLine && x.fits), JSON.stringify(bar));
+    check(`at ${width} px the bottom bar stays put and on screen as you turn`, bar.every((x) => x.tools === bar[0].tools && x.oneLine && x.fits), JSON.stringify(bar));
   }
   await p.setViewportSize({ width: 430, height: 860 });
 

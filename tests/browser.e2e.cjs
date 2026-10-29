@@ -91,21 +91,44 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   const after = await st(() => window.__binoculars.view.heading);
   check('dragging left turns the view right', ((after - before + 360) % 360) > 5 && ((after - before + 360) % 360) < 60, `${before.toFixed(1)} -> ${after.toFixed(1)}`);
 
-  // 3. Zoom buttons and pinch.
-  await p.click('#zooms button[data-zoom="4"]');
-  const z4 = await st(() => [window.__binoculars.view.zoom, document.getElementById('video').style.transform, document.querySelector('#zooms .on')?.textContent]);
-  check('4× button zooms', z4[0] === 4 && z4[1] === 'scale(4)' && z4[2] === '4×', z4.join(' '));
+  // 3. Zoom: one round button that steps 1×, 2×, 4×, 8× and back, the picture easing to each
+  // step rather than jumping; pinch still works. (Fault: four zoom pills crowd the bar and snap.)
+  const zoomText = () => st(() => document.getElementById('zoom-btn')?.textContent ?? null);
+  const zoomed = (z) => p.waitForFunction((z) => window.__binoculars.view.zoom === z, z, { timeout: 3000 }).then(() => true, () => false);
+  const zoomTo = async (label) => {
+    for (let i = 0; i < 4 && (await zoomText()) !== label && (await p.$('#zoom-btn')); i++) await p.click('#zoom-btn');
+  };
+  const steps = [];
+  for (let i = 0; i < 4 && (await p.$('#zoom-btn')); i++) {
+    await p.click('#zoom-btn');
+    steps.push(await zoomText());
+  }
+  const pills = await st(() => document.querySelectorAll('#zooms, [data-zoom]').length);
+  check('one zoom button steps 2×, 4×, 8×, back to 1×, and the pills are gone', steps.join(' ') === '2× 4× 8× 1×' && pills === 0, `${steps.join(' ')}; ${pills} pills`);
+  await zoomed(1);
+  await zoomTo('2×');
+  const mid = await st(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(window.__binoculars.view.zoom)))));
+  const at2 = await zoomed(2);
+  check('the picture eases to the new zoom', mid > 1 && mid < 2 && at2, `two frames in: ${mid}; reached 2×: ${at2}`);
+  await zoomTo('4×');
+  const at4 = await zoomed(4);
+  const z4 = await st(() => [window.__binoculars.view.zoom, document.getElementById('video').style.transform, document.getElementById('zoom-btn')?.textContent]);
+  check('4× zooms the picture and the button says so', at4 && z4[1] === 'scale(4)' && z4[2] === '4×', z4.join(' '));
   await p.screenshot({ path: `${OUT}/2-zoom4.png` });
-  await p.click('#zooms button[data-zoom="1"]');
+  await zoomTo('1×');
+  await zoomed(1);
   const pinched = await st(() => {
     const ev = (type, id, x) => document.elementFromPoint(x, 500).dispatchEvent(new PointerEvent(type, { pointerId: id, clientX: x, clientY: 500, bubbles: true }));
     ev('pointerdown', 11, 180); ev('pointerdown', 12, 250);
     ev('pointermove', 11, 110); ev('pointermove', 12, 320);
     ev('pointerup', 11, 110); ev('pointerup', 12, 320);
-    return window.__binoculars.view.zoom;
+    return window.__binoculars.view.zoomTarget;
   });
-  check('pinch out zooms in', pinched > 2.5 && pinched < 3.5, `zoom ${pinched.toFixed(2)}`);
-  await p.click('#zooms button[data-zoom="1"]');
+  const pinchLabel = await zoomText();
+  const settled = await zoomed(pinched);
+  check('pinch out zooms in', pinched > 2.5 && pinched < 3.5 && settled && pinchLabel === `${Math.round(pinched * 10) / 10}×`, `zoom ${pinched}, button ${pinchLabel}, settled ${settled}`);
+  await zoomTo('1×');
+  await zoomed(1);
 
   // 4. Tap a label: info sheet. Faced a few degrees off Jebel Musa so the reticle is not on it
   // and it keeps its label.
