@@ -98,6 +98,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .sheet-full h1 { margin: 0; font-size: 34px; }
 .sheet-full p { max-width: 420px; margin: 0; color: #c9d1e0; }
+.sheet-full #start-error { padding: 10px 14px; border-radius: 12px; background: #2a2412; color: var(--accent); }
 .small { font-size: 12.5px; }
 .muted { color: var(--muted); }
 .primary, .secondary { width: min(340px, 100%); padding: 14px; border-radius: 14px; border: 0; font-weight: 600; }

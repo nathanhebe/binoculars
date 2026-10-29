@@ -75,6 +75,7 @@ async function start(fixed) {
   const motion = requestMotion();
   const camera = params.has('nocam') ? Promise.resolve() : startCamera();
   show('start', false);
+  show('start-error', false);
   show('loading');
   loading('Finding you…');
   if (fixed) {
@@ -94,7 +95,9 @@ async function start(fixed) {
       loading('');
       show('loading', false);
       show('start');
-      toast(`Couldn't get your location (${err.message}). Allow location for this site, or try the demo.`, 0);
+      // The browser's own wording ("User denied Geolocation") goes to the console only.
+      console.warn('location failed:', err.message);
+      show('start-error');
       return;
     }
   }
