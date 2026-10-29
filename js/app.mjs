@@ -719,10 +719,14 @@ function frame() {
   const places = shownPlaces();
   const target = pickTarget(places, project, W, H, now);
   const cardY = placeReticle(target, W, H);
-  // Keep labels off the card under the reticle.
-  const { drawn, hiddenHere } = drawLabels(places, project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66], top, bottom, now);
+  // Half the width of the view in degrees as it is now.
+  const half = (Math.atan(W / 2 / f) * 180) / Math.PI;
+  // The edge hints go just under the card, above the chips.
+  const hints = updateEdgeHints(places, heading, half, target, Math.min(cardY + 70, bottom - 30));
+  // Keep labels off the card under the reticle and off the edge hints.
+  const { drawn, hiddenHere } = drawLabels(places, project, W, H, target, [[W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66], ...hints], top, bottom, now);
   updateEmpty(!drawn.length && !target && world.placesDone, hiddenHere, top, now);
-  updateChipHint(heading, (Math.atan(W / 2 / f) * 180) / Math.PI, now);
+  updateChipHint(heading, half, now);
   updateReadout(heading, pitch);
   if (world.horizon.length) {
     const scan = scanSkyline(heading);
@@ -862,7 +866,7 @@ const BEYOND_ZOOM = 2;
 const beyond = (p) => !p.visible && p.blockedBy === 'curve' && view.zoom >= BEYOND_ZOOM - 0.05;
 
 function drawLabels(places, project, W, H, target, reserved, top, bottom, now) {
-  const placed = [reserved];
+  const placed = [...reserved];
   const drawn = [];
   // Fewer, bigger names at 1×; smaller places as the zoom narrows the view (detailFor).
   const { minScore, cap: max, rows } = detailFor(view.zoom);
@@ -966,6 +970,49 @@ function updateEmpty(empty, { curve, terrain }, top, now) {
   el.style.top = `${top}px`;
   el.hidden = false;
 }
+// With nothing under the reticle, name at each edge the nearest place just out of view that
+// this zoom would label (detailFor; not points of interest, which the chips' note covers),
+// within 45° of that edge: "‹ Ceuta 78 km", "Ronda 45 km ›". Names go in by textContent.
+// Returns the boxes the hints take, for the labels to keep clear of; y is their top.
+const HINT_REACH_DEG = 45;
+function updateEdgeHints(places, heading, half, target, y) {
+  const best = { left: null, right: null };
+  if (!target && world.placesDone && !view.aligning) {
+    const { minScore } = detailFor(view.zoom);
+    for (const p of places) {
+      if (isPoi(p) || p.score < minScore) continue;
+      if (!p.visible && !settings.showHidden && !beyond(p)) continue;
+      const off = angleDiff(p.brg, heading);
+      const out = Math.abs(off) - half;
+      if (out <= 0 || out > HINT_REACH_DEG) continue;
+      const side = off < 0 ? 'left' : 'right';
+      if (!best[side] || out < best[side].out) best[side] = { p, out };
+    }
+  }
+  const boxes = [];
+  for (const side of ['left', 'right']) {
+    const el = $(`edge-${side}`);
+    const p = best[side]?.p;
+    if (!p) {
+      el.hidden = true;
+      continue;
+    }
+    const km = formatKm(p.d);
+    const key = `${p.name}|${km}|${innerWidth}x${innerHeight}|${Math.round(y)}`;
+    if (el._key !== key || el.hidden) {
+      el.querySelector('.n').textContent = p.name;
+      el.querySelector('.d').textContent = km;
+      el.style.top = `${Math.round(y)}px`;
+      el.hidden = false;
+      const r = el.getBoundingClientRect();
+      el._box = [r.left, r.top, r.right, r.bottom];
+      el._key = key;
+    }
+    boxes.push(el._box);
+  }
+  return boxes;
+}
+
 $('empty-show').addEventListener('click', () => {
   settings.showHidden = true;
   $('show-hidden').checked = true;

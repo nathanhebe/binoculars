@@ -149,6 +149,45 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
     await ctx.close();
   }
 
+  // 2. Scan hints: facing due south at 1x nothing is under the reticle, so the nearest place
+  // worth turning to just out of view on each side is named at that edge, with its distance,
+  // clear of the banner, the card, the chips and the bar, on a small phone and a large one.
+  const HINT = /^‹ \S.* \d+(\.\d)? km$|^\S.* \d+(\.\d)? km ›$/;
+  for (const vp of [{ width: 375, height: 667 }, { width: 430, height: 860 }]) {
+    const { ctx, p, errors: e } = await open(b, vp, 180);
+    await look(p, 180, 1);
+    await p.waitForTimeout(1500);
+    const hintState = () => p.evaluate(() => {
+      const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
+      const shown = (el) => el && !el.hidden && getComputedStyle(el).visibility !== 'hidden' && getComputedStyle(el).display !== 'none';
+      return {
+        locked: document.getElementById('reticle').classList.contains('locked'),
+        hints: [...document.querySelectorAll('.edge-hint')].filter(shown).map((el) => ({ text: el.textContent, box: box(el) })),
+        others: ['banner', 'target', 'chips', 'hud', 'empty'].map((id) => document.getElementById(id)).filter(shown).map((el) => ({ id: el.id, box: box(el) })),
+      };
+    });
+    const s = await hintState();
+    await p.screenshot({ path: path.join(OUT, `hints-${vp.width}.png`) });
+    console.log(`  ${vp.width}x${vp.height} 180° 1x: ${s.locked ? 'locked; ' : ''}${s.hints.map((h) => h.text).join(' | ') || 'no hints'}`);
+    const bad = s.hints.filter((h) => !HINT.test(h.text)).map((h) => `"${h.text}"`);
+    const off = s.hints.filter(({ box: [l, t, r, bt] }) => l < 0 || t < 0 || r > vp.width || bt > vp.height).map((h) => `${h.text} off screen`);
+    const hits = s.hints.flatMap((h) => s.others
+      .filter(({ box: o }) => h.box[0] < o[2] && h.box[2] > o[0] && h.box[1] < o[3] && h.box[3] > o[1])
+      .map((o) => `${h.text} over #${o.id}`));
+    const sides = s.hints.map((h) => (h.text.startsWith('‹') ? 'left' : 'right'));
+    check(`at ${vp.width}x${vp.height}, nothing locked, the nearest place out of view each side is named at that edge`,
+      !s.locked && s.hints.length >= 1 && new Set(sides).size === sides.length && !bad.length && !off.length && !hits.length,
+      [s.locked ? 'locked' : '', `${s.hints.length} hints`, ...bad, ...off, ...hits].filter(Boolean).join(', '));
+    if (vp.width === 375) {
+      await look(p, 215, 1);
+      await p.waitForTimeout(1500);
+      const t = await hintState();
+      check('with a place under the reticle there are no edge hints', t.locked && t.hints.length === 0, `${t.locked ? 'locked' : 'not locked'}; ${t.hints.map((h) => h.text).join(' | ')}`);
+    }
+    errors.push(...e);
+    await ctx.close();
+  }
+
   check('no page errors', errors.length === 0, errors.join(' | '));
   await b.close();
   console.log(`\n${results.filter(Boolean).length} of ${results.length} checks passed`);

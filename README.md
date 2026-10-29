@@ -21,6 +21,9 @@ full screen.
   **Show** to grey them in.
 - Point the centre ring at a place and it locks on, with the place named in a card underneath.
   Tap the card, or any label, for its distance, height and links to Wikipedia and Google Maps.
+  With nothing locked, each edge names the nearest place just out of view that way, within 45°,
+  that the zoom you are at would label ("‹ Ceuta 78 km", "Jbel Chendir 83 km ›"), so you know
+  where to turn.
 - The round button in the bottom-right corner zooms: each tap steps 1×, 2×, 4×, 8× and back to
   1×. Pinch works too. Zooming in names smaller places in the narrower view: at 1× cities,
   towns, landmarks and the taller peaks; from 2× every peak and villages within 20 km; from 4×

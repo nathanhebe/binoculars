@@ -66,6 +66,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 #empty-show { flex: none; padding: 3px 12px; border-radius: 12px; border: 0; background: var(--accent); color: #111; font-weight: 600; }
 
+/* With nothing under the reticle, the nearest place worth turning to just out of view, at that
+   edge: "‹ Ceuta 78 km". Placed just under the card below the reticle (app.mjs sets top), clear
+   of the horizon's dots; a long name is cut short so the distance always shows. */
+.edge-hint {
+  position: fixed; top: 60%; max-width: calc(50% - 14px);
+  padding: 3px 9px; border-radius: 12px; background: rgba(11, 18, 32, 0.45); pointer-events: none;
+  color: #fff; font-size: 13px; font-weight: 600; line-height: 18px; white-space: nowrap;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.9), 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+#edge-left { left: 8px; }
+#edge-right { right: 8px; }
+.edge-hint .n { display: inline-block; vertical-align: bottom; max-width: calc(50vw - 90px); overflow: hidden; text-overflow: ellipsis; }
+.edge-hint .d { font-weight: 400; color: #dfe5f0; }
+
 /* A ring at the centre; locked on a place it turns yellow and becomes four corner brackets
    around that place's dot. */
 #reticle {
@@ -204,9 +218,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   padding: 18px 18px calc(var(--safe-bottom) + 18px); border-radius: 18px 18px 0 0;
   background: #0f1626; -webkit-user-select: text; user-select: text; touch-action: pan-y;
 }
-/* An open sheet stands alone: the bar, the card and the empty-view note step out of the way.
+/* An open sheet stands alone: the bar, the card, the empty-view note and the edge hints step out of the way.
    visibility, not display, so the bar keeps its place and messages still sit just above it. */
-body.sheet-open #hud, body.sheet-open #target, body.sheet-open #reticle, body.sheet-open #empty { visibility: hidden; }
+body.sheet-open #hud, body.sheet-open #target, body.sheet-open #reticle, body.sheet-open #empty, body.sheet-open .edge-hint { visibility: hidden; }
 /* Only passing messages stay in front of a sheet; the lasting lines would cover its rows. */
 body.sheet-open #status, body.sheet-open #cam-off, body.sheet-open #align-hint, body.sheet-open #chips, body.sheet-open #chip-hint { visibility: hidden; }
 .sheet h2 { margin: 0 36px 2px 0; font-size: 21px; }
