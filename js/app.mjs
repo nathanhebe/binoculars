@@ -181,6 +181,8 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     loadPlaces(lat, lon, RANGE_KM, {
       fresh,
       onPart: (items, done, total, failed) => {
+        // A load for an earlier position can still be answering after a move.
+        if (gen !== world.gen) return;
         world.items = items;
         then(async () => {
           await computePlaces(items, gen);
