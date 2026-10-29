@@ -26,6 +26,17 @@ const onScreen = (p) =>
 (async () => {
   const b = await chromium.launch({ channel: 'chromium' });
   const errors = [];
+  // Terrain comes from a live server whose speed is not under test: each 5 s clock starts when
+  // the terrain is in and the view can be drawn. TERRAIN_DELAY_MS slows it to prove that.
+  const DELAY = +process.env.TERRAIN_DELAY_MS || 0;
+  const nc = b.newContext.bind(b);
+  b.newContext = async (o) => {
+    const c = await nc(o);
+    if (DELAY) await c.route(/elevation-tiles-prod/, async (r) => { await new Promise((k) => setTimeout(k, DELAY)); r.continue().catch(() => {}); });
+    return c;
+  };
+  const terrainIn = (p) =>
+    p.waitForFunction(() => { const w = window.__binoculars?.world; return w && w.gen > 0 && w.measuredGen === w.gen; }, null, { timeout: 120000, polling: 100 });
 
   // 1. Fault: with every place-name server held, mountains have no name until OpenStreetMap
   // answers. Edge: nothing from Overpass or the map tiles ever answers, on a cold start.
@@ -35,8 +46,9 @@ const onScreen = (p) =>
     p.on('pageerror', (e) => errors.push(String(e)));
     const held = [];
     await p.route(PLACE_HOSTS, (r) => held.push(r));
-    const t0 = Date.now();
     await p.goto(BASE + MARBELLA);
+    await terrainIn(p);
+    const t0 = Date.now();
     let seen = { names: [], peaks: [] };
     while (Date.now() - t0 < 5000 && !(seen.peaks.length && seen.names.length > seen.peaks.length)) {
       await p.waitForTimeout(200);
@@ -59,8 +71,9 @@ const onScreen = (p) =>
     const held = [];
     await p.route(/\/interpreter/, (r) => held.push(r));
     const asked = await routeTiles(p, { delay: 400 });
-    const t0 = Date.now();
     await p.goto(BASE + MARBELLA);
+    await terrainIn(p);
+    const t0 = Date.now();
     let seen = [];
     while (Date.now() - t0 < 5000 && !seen.length) {
       await p.waitForTimeout(200);
@@ -106,8 +119,9 @@ const onScreen = (p) =>
     await p.goto(BASE + MARBELLA);
     await tilesIn();
     const first = asked.length;
-    const t0 = Date.now();
     await p.goto(BASE + MARBELLA);
+    await terrainIn(p);
+    const t0 = Date.now();
     let seen = [];
     while (Date.now() - t0 < 5000 && !seen.length) {
       await p.waitForTimeout(200);
