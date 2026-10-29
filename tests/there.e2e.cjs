@@ -37,7 +37,7 @@ const z14 = (asked) => asked.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t));
     p.evaluate(() => {
       const el = document.getElementById('there');
       const shown = !!el && !el.hidden && el.getBoundingClientRect().height > 0;
-      return { shown, items: shown ? [...el.querySelectorAll('button')].map((x) => x.textContent) : [], box: el?.getBoundingClientRect().toJSON() ?? null };
+      return { shown, items: shown ? [...el.querySelectorAll('button:not([hidden])')].map((x) => x.textContent) : [], box: el?.getBoundingClientRect().toJSON() ?? null };
     });
   const hotelLabels = () =>
     p.evaluate((names) => [...document.querySelectorAll('.label.on:not([hidden]) .n')].map((n) => n.textContent).filter((n) => names.includes(n)), HOTELS);
@@ -84,7 +84,7 @@ const z14 = (asked) => asked.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t));
   await p.click('#info [data-close]');
   const seenAt = () => p.evaluate(() => {
     const ws = [...window.__binoculars.world.pois, ...window.__binoculars.world.places];
-    return [...document.querySelectorAll('#there button')].map((x) => {
+    return [...document.querySelectorAll('#there button:not([hidden])')].map((x) => {
       const w = ws.find((q) => x.textContent.startsWith(`${q.name} · `));
       return { text: x.textContent, visible: w ? !!w.visible : null };
     });
@@ -125,7 +125,7 @@ const z14 = (asked) => asked.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t));
   await p.waitForTimeout(1000); // it has been wavering while the user aimed
   const taps = [];
   for (let i = 0; i < 8; i++) {
-    const rows = await p.$$eval('#there button', (bs) => bs.map((x) => ({ text: x.textContent, r: x.getBoundingClientRect().toJSON() })));
+    const rows = await p.$$eval('#there button:not([hidden])', (bs) => bs.map((x) => ({ text: x.textContent, r: x.getBoundingClientRect().toJSON() })));
     const row = rows[i % Math.max(rows.length, 1)];
     if (!row) { taps.push({ row: null }); await p.waitForTimeout(300); continue; }
     await p.waitForTimeout(250);
@@ -161,6 +161,40 @@ const z14 = (asked) => asked.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t));
     check(`at ${w}x${h} the list stays off the reticle and its card, and places are labelled`,
       !over(lay.there, lay.reticle) && !over(lay.there, lay.target) && lay.labels > 0, JSON.stringify(lay));
     await q.screenshot({ path: `${OUT}/there-${w}x${h}.png` });
+    if (h === 667) {
+      // 6. Fault: the card follows a locked place's dot down below the middle, or a status line
+      // stacks above the list, and the list or that line covers the card and takes its taps.
+      // Edge: tilting up until the dot is near the bottom of the lock circle; then a status line.
+      const notices = () => q.evaluate(() => {
+        const t = document.getElementById('target').getBoundingClientRect();
+        const card = document.getElementById('target').hidden ? null : t.toJSON();
+        const shown = [...document.querySelectorAll('#notices > *, #there button')].filter((el) => !el.hidden && el.getBoundingClientRect().height > 0);
+        return { card, top: Math.min(...shown.map((el) => el.getBoundingClientRect().top)), rows: document.querySelectorAll('#there button:not([hidden])').length };
+      });
+      const lows = [];
+      for (const pitch of [2.5, 3, 3.5, 4]) {
+        await q.evaluate((v) => (window.__binoculars.view.pitch = v), pitch);
+        await q.waitForTimeout(800);
+        lows.push({ pitch, ...(await notices()) });
+      }
+      check('at 375x667, with the locked place below the middle, nothing below covers its card',
+        lows.every((n) => !n.card || n.top >= n.card.bottom) && lows.some((n) => n.card && n.card.top > 667 / 2 + 50), JSON.stringify(lows));
+      await q.evaluate((v) => (window.__binoculars.view.pitch = v), 0.3);
+      await q.waitForTimeout(800);
+      const before = await notices();
+      await q.evaluate(() => {
+        document.getElementById('status-text').textContent = 'Finding more names…';
+        document.getElementById('status').hidden = false;
+      });
+      await q.waitForTimeout(800);
+      const during = await notices();
+      check('at 375x667, a status line above the list does not cover the card either',
+        during.card && before.rows > 0 && during.top >= during.card.bottom, JSON.stringify({ before, during }));
+      await q.evaluate(() => (document.getElementById('status').hidden = true));
+      await q.waitForTimeout(800);
+      const after = await notices();
+      check('and the rows it hid come back when the status line goes', during.rows < before.rows && after.rows === before.rows, JSON.stringify({ before: before.rows, during: during.rows, after: after.rows }));
+    }
     await c.close();
   }
 

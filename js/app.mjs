@@ -532,8 +532,9 @@ const HINT_DELAY_MS = 400;
 // and the list names them anyway. Rebuilt only when what it holds changes.
 const THERE_MAX = 6;
 let thereKey = '';
+let thereFit = '';
 let thereIds = new Set();
-function updateThere(places, heading, half) {
+function updateThere(places, heading, half, cardY) {
   const el = $('there');
   let items = [];
   if (view.zoom >= AUTO_ZOOM - 0.05 && !$('chips').hidden) {
@@ -548,23 +549,35 @@ function updateThere(places, heading, half) {
       .slice(0, THERE_MAX);
   }
   // Whether each is in view is in the key: a height change keeps names and distances.
-  const key = `${innerHeight}|${$('chip-hint').hidden}:` + items.map((p) => `${p.id}|${Math.round(p.d)}|${p.visible ? 'v' : p.blockedBy}`).join(',');
-  if (key === thereKey) return;
-  thereKey = key;
-  thereIds = new Set(items.map((p) => p.id));
-  el.replaceChildren(
-    ...items.map((p) => {
-      const b = document.createElement('button');
-      b.textContent = `${p.name} · ${isPoi(p) ? p.type : KINDS[p.kind].label} · ${formatKm(p.d)}`;
-      b.addEventListener('click', () => openInfo(p));
-      return b;
-    }),
-  );
-  el.hidden = false;
-  // The furthest rows go if the list would reach up over the card under the reticle: held
-  // sideways there is room for none, and the labels name what is there instead.
-  while (el.lastChild && el.getBoundingClientRect().top < innerHeight / 2 + 98) el.lastChild.remove();
-  el.hidden = !el.childElementCount;
+  const key = items.map((p) => `${p.id}|${Math.round(p.d)}|${p.visible ? 'v' : p.blockedBy}`).join(',');
+  if (key !== thereKey) {
+    thereKey = key;
+    thereFit = '';
+    thereIds = new Set(items.map((p) => p.id));
+    el.replaceChildren(
+      ...items.map((p) => {
+        const b = document.createElement('button');
+        b.textContent = `${p.name} · ${isPoi(p) ? p.type : KINDS[p.kind].label} · ${formatKm(p.d)}`;
+        b.addEventListener('click', () => openInfo(p));
+        return b;
+      }),
+    );
+  }
+  // The furthest rows hide if the list, or a message stacked above it, would reach up over the
+  // card, which follows a locked dot below the middle: held sideways there is room for none,
+  // and the labels name what is there instead. Checked again when the card, the screen height
+  // or what is stacked round the list changes.
+  const limit = cardY + 74;
+  let above = 0;
+  for (let s = el.previousElementSibling; s; s = s.previousElementSibling) above += s.offsetHeight;
+  const fit = `${innerHeight}|${$('chip-hint').hidden}|${above}|${Math.round(limit / 8)}`;
+  if (fit === thereFit) return;
+  thereFit = fit;
+  const rows = [...el.children];
+  for (const b of rows) b.hidden = false;
+  el.hidden = !rows.length;
+  for (let i = rows.length - 1; i >= 0 && $('notices').getBoundingClientRect().top < limit; i--) rows[i].hidden = true;
+  el.hidden = rows.every((b) => b.hidden);
 }
 
 const CAT_WORDS = { food: 'food places', shops: 'shops', travel: 'travel stops', sights: 'sights', stay: 'places to stay' };
@@ -776,7 +789,7 @@ function frame() {
   const cardY = placeReticle(target, W, H);
   // Half the width of the view in degrees as it is now.
   const half = (Math.atan(W / 2 / f) * 180) / Math.PI;
-  updateThere(places, heading, half);
+  updateThere(places, heading, half, cardY);
   // Keep labels' dots above the list of what is there, or else the chips.
   const there = $('there');
   const chips = $('chips');
