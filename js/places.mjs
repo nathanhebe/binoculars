@@ -31,6 +31,7 @@ export const KINDS = {
   shops: { rank: 40, rise: 5, label: 'Shop' },
   travel: { rank: 50, rise: 5, label: 'Travel' },
   sights: { rank: 50, rise: 8, label: 'Sight' },
+  stay: { rank: 40, rise: 10, label: 'Stay' },
 };
 
 // How much detail each zoom shows: the least score a place needs to be labelled (KINDS' rank,

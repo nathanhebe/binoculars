@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { poiPlan, poisOf, safeWebsite } from '../js/pois.mjs';
+import { poiPlan, poiRange, poisOf, safeWebsite } from '../js/pois.mjs';
 
 // Fault: points of interest from the zoom-14 map tiles come through as the wrong category, or
 // things nobody scans a view for (nightclubs, kiosks, bus stops, nameless places) get labels.
@@ -55,4 +55,34 @@ test('only a real web address becomes a website link', () => {
   assert.equal(safeWebsite('http://example.com'), 'http://example.com/');
   assert.equal(safeWebsite('www.example.es'), 'https://www.example.es/', 'a bare domain gets https');
   assert.equal(safeWebsite('https://a.example.com; https://b.example.com'), 'https://a.example.com/', 'the first of several');
+});
+
+// Fault: hotels, hostels and guest houses are dropped, so zooming on a seafront names nothing.
+// Edge: a nameless hotel, and a camp site, which is not somewhere people look for a room.
+test('hotels, hostels and guest houses count as places to stay', () => {
+  const out = poisOf([
+    feature(11, 'lodging', 'hotel', 'Puente Romano'),
+    feature(21, 'lodging', 'hostel', 'Apartamentos Marina'),
+    feature(31, 'lodging', 'guest_house', 'Casa Azul'),
+    feature(41, 'lodging', 'hotel', null),
+    feature(51, 'campsite', 'camp_site', 'Camping Marbella'),
+  ]);
+  assert.deepEqual(out.map((p) => [p.name, p.kind, p.type]), [
+    ['Puente Romano', 'stay', 'Hotel'],
+    ['Apartamentos Marina', 'stay', 'Hostel'],
+    ['Casa Azul', 'stay', 'Guest house'],
+  ]);
+});
+
+// Fault: zoomed in, points of interest stop at 8 km, so a stretch of coast 10–16 km off names
+// nothing; or the wedge stays 5° wider than the view whatever the zoom and fetches a fan of
+// tiles nobody is looking at. Edge: 8×, the furthest and narrowest view.
+test('zoomed in, the plan reaches 16 km down a narrow wedge', () => {
+  assert.equal(poiRange(1), 4);
+  assert.equal(poiRange(4), 16);
+  assert.equal(poiRange(8), 16);
+  // 8× on a phone: the view is about 4° wide either side.
+  const plan = poiPlan(36.5068, -4.886, 268, 4 / 8 + 5 / 8, 8);
+  assert.ok(Math.max(...plan.map((t) => t.d)) > 14, 'reaches past 14 km');
+  assert.ok(plan.length <= 12, `${plan.length} tiles`);
 });

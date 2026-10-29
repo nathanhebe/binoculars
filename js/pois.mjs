@@ -1,4 +1,4 @@
-// Points of interest (restaurants, shops, stations, sights) from the same OpenFreeMap tiles as
+// Points of interest (restaurants, shops, stations, sights, hotels) from the same OpenFreeMap tiles as
 // the place names. They exist only at the tiles' most detailed zoom (14, about 2 km a tile),
 // so only the tiles in the direction looked at are fetched, nearest first.
 import { loadTile, nameOf } from './tiles.mjs';
@@ -7,7 +7,7 @@ import { ENDPOINTS } from './places.mjs';
 const Z = 14;
 
 // How far points of interest are shown, in km: a few km by eye, further through the zoom.
-export const poiRange = (zoom) => Math.min(8, 4 * zoom);
+export const poiRange = (zoom) => Math.min(16, 4 * zoom);
 
 // What each map class or subclass counts as. Things nobody scans a view for (nightclubs,
 // kiosks, bus stops) are left out.
@@ -17,7 +17,6 @@ const SHOP_SUBCLASSES = new Set(['bakery', 'butcher']);
 const TRAVEL = new Set(['ferry_terminal', 'bus_station', 'marina']);
 const SIGHT_CLASSES = new Set(['attraction', 'castle', 'art_gallery']);
 const SIGHTS = new Set(['attraction', 'museum', 'viewpoint', 'gallery', 'castle', 'monument', 'ruins', 'fort', 'lighthouse']);
-
 const TYPES = {
   clothes: 'Clothes shop', fast_food: 'Fast food', ice_cream: 'Ice cream', ferry_terminal: 'Ferry port',
   bus_station: 'Bus station', station: 'Railway station', halt: 'Railway halt', convenience: 'Corner shop',
@@ -29,6 +28,8 @@ function categoryOf(cls, sub) {
   if (sub !== 'kiosk' && (SHOP_CLASSES.has(cls) || SHOP_SUBCLASSES.has(sub))) return 'shops';
   if (TRAVEL.has(sub) || (cls === 'railway' && (sub === 'station' || sub === 'halt'))) return 'travel';
   if (SIGHTS.has(sub) || SIGHT_CLASSES.has(cls)) return 'sights';
+  // Hotels, hostels, guest houses (class lodging); camp sites are a class of their own.
+  if (cls === 'lodging') return 'stay';
   return null;
 }
 
@@ -87,7 +88,8 @@ export function poiPlan(lat, lon, heading, halfDeg, zoom) {
   return [...seen.values()].sort((p, q) => p.d - q.d);
 }
 
-export const loadPoiTile = (t) => loadTile(t, 'pois', ['poi'], poisOf);
+// 'pois2': tiles saved before places to stay were kept hold none, so they are not reused.
+export const loadPoiTile = (t) => loadTile(t, 'pois2', ['poi'], poisOf);
 
 // A website tag as an http(s) address safe to link to, or null. OpenStreetMap text is anyone's:
 // it may be javascript:, mailto: or junk. A bare domain gets https; of several, the first.
