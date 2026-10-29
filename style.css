@@ -173,6 +173,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #status.failed { color: var(--text); }
 #status.failed #status-bar { display: none; }
 
+/* Zoomed in: what is near the middle of the view, nearest first, one tap to its sheet. */
+#there { display: flex; flex-direction: column; gap: 2px; width: min(360px, 100%); padding: 4px; border-radius: 12px; background: var(--panel); }
+#there[hidden] { display: none; }
+#there button {
+  padding: 5px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); font-size: 13px; text-align: left;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 #chip-hint { padding: 4px 12px; border-radius: 14px; background: var(--panel); font-size: 12.5px; color: var(--muted); }
 /* The Food, Shops, Travel and Sights chips: the bottom line of the stack, just above the bar. */
 #chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
@@ -189,7 +196,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #chips [data-cat='shops'], .label.k-shops { --c: #d08cff; }
 #chips [data-cat='travel'], .label.k-travel { --c: #5cc8ff; }
 #chips [data-cat='sights'], .label.k-sights { --c: #7ee08a; }
-.label.k-food .n::before, .label.k-shops .n::before, .label.k-travel .n::before, .label.k-sights .n::before {
+#chips [data-cat='stay'], .label.k-stay { --c: #ffd166; }
+.label.k-food .n::before, .label.k-shops .n::before, .label.k-travel .n::before, .label.k-sights .n::before, .label.k-stay .n::before {
   content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%;
   background: var(--c); vertical-align: 1px;
 }
@@ -222,7 +230,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
    visibility, not display, so the bar keeps its place and messages still sit just above it. */
 body.sheet-open #hud, body.sheet-open #target, body.sheet-open #reticle, body.sheet-open #empty, body.sheet-open .edge-hint { visibility: hidden; }
 /* Only passing messages stay in front of a sheet; the lasting lines would cover its rows. */
-body.sheet-open #status, body.sheet-open #cam-off, body.sheet-open #align-hint, body.sheet-open #chips, body.sheet-open #chip-hint { visibility: hidden; }
+body.sheet-open #status, body.sheet-open #cam-off, body.sheet-open #align-hint, body.sheet-open #chips, body.sheet-open #chip-hint, body.sheet-open #there { visibility: hidden; }
 .sheet h2 { margin: 0 36px 2px 0; font-size: 21px; }
 #info-lead { margin: 0 36px 0 0; font-size: 18px; line-height: 1.4; }
 #info-name { font-size: 21px; }

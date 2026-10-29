@@ -36,8 +36,11 @@ async function open(b, viewport, heading) {
 // (js/tiles.mjs FINER_Z).
 const DETAIL = { 1: [45, 12], 2: [35, 14], 4: [22, 16], 8: [0, 16] };
 const FINER_Z = { 2: 10, 4: 11, 8: 11 };
-const POI = ['food', 'shops', 'travel', 'sights'];
+const POI = ['food', 'shops', 'travel', 'sights', 'stay'];
 const tileZ = (path) => Number((/\/(\d+)\/\d+\/\d+\.pbf$/.exec(path) || [])[1]);
+// Place-name tiles only: zoomed to 2x or more, the zoom-14 shop and hotel tiles are asked for
+// too, and tests/poi.e2e.cjs holds their budget.
+const placeTile = (path) => tileZ(path) < 14;
 const look = (p, heading, zoom) =>
   p.evaluate(([h, z]) => {
     const { view } = window.__binoculars;
@@ -72,7 +75,7 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
       await look(p, 215, z);
       await p.waitForTimeout(2500);
       seen[z] = await labels(p);
-      tiles[z] = asked.slice(before).filter((a) => a.endsWith('.pbf'));
+      tiles[z] = asked.slice(before).filter((a) => a.endsWith('.pbf') && placeTile(a));
       await p.screenshot({ path: path.join(OUT, `z${z}.png`) });
       show(z, seen[z]);
     }
@@ -244,7 +247,7 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
       await look(p, h, 8);
       await p.waitForTimeout(700);
     }
-    const finerAsked = asked.slice(from).filter((x) => tileZ(x) >= 10);
+    const finerAsked = asked.slice(from).filter((x) => tileZ(x) >= 10 && placeTile(x));
     check('a full turn at 8x asks for at most 96 finer map tiles', finerAsked.length >= 1 && finerAsked.length <= 96, `${finerAsked.length} asked`);
     errors.push(...e);
     await ctx.close();

@@ -69,8 +69,8 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
   await p.goto(`${BASE}?${MARBELLA}&heading=20&pitch=1&nocam=1&autostart=1`);
   await ready();
   let cs = await chips();
-  check('four chips, Food, Shops, Travel and Sights, all off at first',
-    cs.map((c) => c.text).join(',') === 'Food,Shops,Travel,Sights' && cs.every((c) => !c.on), JSON.stringify(cs.map((c) => [c.text, c.on])));
+  check('five chips, Food, Shops, Travel, Sights and Stay, all off at first',
+    cs.map((c) => c.text).join(',') === 'Food,Shops,Travel,Sights,Stay' && cs.every((c) => !c.on), JSON.stringify(cs.map((c) => [c.text, c.on])));
   const geom = await p.evaluate(() => {
     const r = (id) => document.getElementById(id)?.getBoundingClientRect();
     return { chips: r('chips')?.toJSON(), hud: r('hud').toJSON(), reticle: r('reticle').toJSON(), w: innerWidth };
@@ -174,8 +174,9 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
   check('with Food turned off the restaurants go', r === undefined && (await waitFood(false)), JSON.stringify(await foodLabels()));
   await p.screenshot({ path: `${OUT}/poi-oldtown-food-off.png` });
 
-  // 7. Fault: zooming alone, or a chip, fetches detailed tiles out to 20 km, hundreds of them
-  // (45-140 KB each in a town). Edge: a full turn in 8 headings at 8x, in a fresh browser.
+  // 7. Fault: zooming in names nothing but hills unless a chip is on; or zooming, alone or with a
+  // chip, fetches a wide fan of detailed tiles (45-140 KB each in a town) rather than the narrow
+  // wedge looked at out to 16 km. Edge: a full turn in 8 headings at 8x, in a fresh browser.
   for (const food of [false, true]) {
     const ctx2 = await b.newContext({ viewport: { width: 430, height: 860 } });
     await ctx2.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: PLACES }));
@@ -195,8 +196,7 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
     const before = z14();
     await sweep();
     const n = z14() - before;
-    if (food) check('with Food on at 8x a full turn asks for a bounded number of detailed tiles (8 km)', n > 0 && n <= 60, `${n} asked`);
-    else check('zoomed to 8x with every chip off, turning all the way round asks for no detailed tiles', n === 0, `${n} asked`);
+    check(`at 8x ${food ? 'with Food on' : 'with every chip off'} a full turn asks for a bounded number of detailed tiles (16 km)`, n > 0 && n <= 120, `${n} asked`);
     await ctx2.close();
   }
 

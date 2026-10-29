@@ -16,7 +16,7 @@ const params = new URLSearchParams(location.search);
 // ---------- settings (per viewer, survives reloads) ----------
 const SETTINGS_KEY = 'binoculars:settings:v1';
 // The point-of-interest categories, each a chip above the controls; all off at first.
-const CATS = ['food', 'shops', 'travel', 'sights'];
+const CATS = ['food', 'shops', 'travel', 'sights', 'stay'];
 const settings = { hag: 2, fov: 64, showHidden: false, showSkyline: true, calibHeading: 0, calibPitch: 0 };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {});
@@ -427,12 +427,17 @@ function addFiner(list) {
 const POI_WORKERS = 2;
 const POI_WAIT_MS = 350;
 const POI_MAX_KM = poiRange(10);
-const CAT_COLOURS = { food: '#ff8a5c', shops: '#d08cff', travel: '#5cc8ff', sights: '#7ee08a' };
+const CAT_COLOURS = { food: '#ff8a5c', shops: '#d08cff', travel: '#5cc8ff', sights: '#7ee08a', stay: '#ffd166' };
 const isPoi = (p) => CATS.includes(p.kind);
-// A kind of place the chips ask for is labelled (greyed) and lockable even when terrain hides
+// Zoomed in to 2× or more with every chip off, every kind is shown: zooming on a stretch of
+// coast is itself asking what is there. Any chip on chooses the kinds, at any zoom.
+const AUTO_ZOOM = 2;
+const autoPois = () => view.zoomTarget >= AUTO_ZOOM && !CATS.some((c) => settings.cats[c]);
+const kindShown = (kind) => settings.cats[kind] || (autoPois() && CATS.includes(kind));
+// A kind of place being shown is labelled (greyed) and lockable even when terrain hides
 // it: the elevation data is too coarse to judge a few hundred metres of town, and the point
 // of asking for restaurants is to find which way they are.
-const asked = (p) => isPoi(p) && settings.cats[p.kind];
+const asked = (p) => isPoi(p) && kindShown(p.kind);
 const poiTiles = new Map(); // 'x/y' → 'loading' or 'done'
 const poiRaw = new Map(); // id → point of interest as the tile gave it
 const poiLoad = { key: '', timer: null, waiting: false, queue: [], busy: 0 };
@@ -457,11 +462,12 @@ function addPois(list) {
   if (fresh.length) world.pois = [...world.pois, ...fresh];
 }
 
-// Called each frame; plans again when the heading moves 5°, the zoom or the chips change.
+// Called each frame; plans again when the heading moves by the wedge's margin (5° at 1×,
+// 5/zoom° zoomed in), the zoom or the chips change.
 function planPois(heading, halfDeg) {
   const zoom = view.zoomTarget;
-  const wanted = CATS.some((c) => settings.cats[c]);
-  const key = wanted && world.measuredGen === world.gen ? `${world.gen}|${Math.round(heading / 5)}|${zoom}` : '';
+  const wanted = CATS.some(kindShown);
+  const key = wanted && world.measuredGen === world.gen ? `${world.gen}|${Math.round((heading * zoom) / 5)}|${zoom}` : '';
   if (key === poiLoad.key) return;
   poiLoad.key = key;
   clearTimeout(poiLoad.timer);
@@ -470,7 +476,7 @@ function planPois(heading, halfDeg) {
   if (!key) return;
   poiLoad.timer = setTimeout(() => {
     poiLoad.waiting = false;
-    poiLoad.queue = poiPlan(world.lat, world.lon, heading, halfDeg / zoom + 5, zoom).filter((t) => !poiTiles.has(`${t.x}/${t.y}`));
+    poiLoad.queue = poiPlan(world.lat, world.lon, heading, (halfDeg + 5) / zoom, zoom).filter((t) => !poiTiles.has(`${t.x}/${t.y}`));
     for (let i = poiLoad.busy; i < POI_WORKERS; i++) poiWorker();
   }, POI_WAIT_MS);
 }
@@ -497,11 +503,11 @@ async function poiWorker() {
   }
 }
 
-// Places plus the points of interest the chips ask for, best first. A point of interest that is also a named place within
+// Places plus the points of interest being shown, best first. A point of interest that is also a named place within
 // 500 m is left to the place. Worked out again only when one of those changes.
 const shown = { places: null, pois: null, key: '', list: [] };
 function shownPlaces() {
-  const key = CATS.map((c) => +settings.cats[c]).join('');
+  const key = CATS.map((c) => +kindShown(c)).join('');
   if (shown.places === world.places && shown.pois === world.pois && shown.key === key) return shown.list;
   const byName = new Map();
   for (const p of world.places) {
@@ -510,7 +516,7 @@ function shownPlaces() {
   }
   const pois = world.pois.filter(
     (p) =>
-      settings.cats[p.kind] &&
+      kindShown(p.kind) &&
       !(byName.get(nameKey(p.name)) ?? []).some((q) => distance(p.lat, p.lon, q.lat, q.lon) < 500)
   );
   const list = pois.length ? [...world.places, ...pois].sort((a, b) => b.score - a.score) : world.places;
@@ -521,7 +527,38 @@ function shownPlaces() {
 // A chip is on but none of its places is in the picture: say so, rather than leave the user
 // wondering whether the chip works. While tiles this way are still coming, say it is looking.
 const HINT_DELAY_MS = 400;
-const CAT_WORDS = { food: 'food places', shops: 'shops', travel: 'travel stops', sights: 'sights' };
+// Zoomed in to 2× or more, a short list above the chips of what is near the middle of the view
+// (the middle quarter of its width), nearest first: labels crowd or hide on a busy seafront,
+// and the list names them anyway. Rebuilt only when what it holds changes.
+const THERE_MAX = 6;
+let thereKey = '';
+function updateThere(places, heading, half) {
+  const el = $('there');
+  let items = [];
+  if (view.zoom >= AUTO_ZOOM - 0.05 && !$('chips').hidden) {
+    const reach = poiRange(view.zoom) * 1000;
+    const { minScore } = detailFor(view.zoom);
+    items = places
+      .filter((p) => (p.visible || asked(p) || beyond(p)) && (isPoi(p) ? p.d <= reach : p.score >= minScore))
+      .filter((p) => Math.abs(angleDiff(p.brg, heading)) <= half / 4)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, THERE_MAX);
+  }
+  const key = items.map((p) => `${p.id}|${Math.round(p.d)}`).join(',');
+  if (key === thereKey) return;
+  thereKey = key;
+  el.replaceChildren(
+    ...items.map((p) => {
+      const b = document.createElement('button');
+      b.textContent = `${p.name} · ${isPoi(p) ? p.type : KINDS[p.kind].label} · ${formatKm(p.d)}`;
+      b.addEventListener('click', () => openInfo(p));
+      return b;
+    }),
+  );
+  el.hidden = !items.length;
+}
+
+const CAT_WORDS = { food: 'food places', shops: 'shops', travel: 'travel stops', sights: 'sights', stay: 'places to stay' };
 let hintSince = null;
 function updateChipHint(heading, halfDeg, now) {
   const el = $('chip-hint');
@@ -720,9 +757,6 @@ function frame() {
   const now = performance.now();
   // Keep labels below the banner, however tall it is on this phone.
   const top = $('banner').getBoundingClientRect().bottom + 8;
-  // ...and their dots above the chips.
-  const chips = $('chips');
-  const bottom = chips.hidden ? H - 70 : Math.min(H - 70, chips.getBoundingClientRect().top - 8);
   if (settings.showSkyline || view.aligning) drawSkyline(project, W);
   // Half the width of the view in degrees at 1×, for which map tiles to ask for.
   const half1 = (Math.atan(W / 2 / (f / view.zoom)) * 180) / Math.PI;
@@ -733,6 +767,12 @@ function frame() {
   const cardY = placeReticle(target, W, H);
   // Half the width of the view in degrees as it is now.
   const half = (Math.atan(W / 2 / f) * 180) / Math.PI;
+  updateThere(places, heading, half);
+  // Keep labels' dots above the list of what is there, or else the chips.
+  const there = $('there');
+  const chips = $('chips');
+  const under = !there.hidden ? there : !chips.hidden ? chips : null;
+  const bottom = under ? Math.min(H - 70, under.getBoundingClientRect().top - 8) : H - 70;
   // The edge hints go just under the card, above the chips.
   const hints = updateEdgeHints(places, heading, half, target, Math.min(cardY + 70, bottom - 30));
   // Keep labels off the card under the reticle and off the edge hints.
