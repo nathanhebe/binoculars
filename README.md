@@ -29,7 +29,7 @@ A static web app with no build step. On start it loads, for 150 km around you:
   sight, with earth curvature and standard refraction;
 - place names from OpenStreetMap through the public Overpass API, in four parts that stream in
   as they arrive (about three minutes when the servers are busy) and, once all four have loaded,
-  are cached on the phone for 30 days;
+  are saved on the phone for 30 days and reused while you stay within 2 km of where they loaded;
 - country borders from Natural Earth (`assets/countries.json`).
 
 Compass: `webkitCompassHeading` on iPhone, absolute device orientation on Android.
