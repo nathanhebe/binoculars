@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Binoculars</title>
+  <meta name="description" content="Point your phone at a view and see which towns, peaks and countries you're looking at.">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Binoculars">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="overlay"></canvas>
+  <div id="labels"></div>
+
+  <div id="banner" hidden>
+    <div id="banner-continent"></div>
+    <div id="banner-country"></div>
+    <div id="banner-note"></div>
+  </div>
+
+  <div id="reticle" hidden></div>
+
+  <div id="hud" hidden>
+    <div id="readout"><span id="heading">—</span><span id="pitch"></span></div>
+    <div id="zooms">
+      <button data-zoom="1">1×</button>
+      <button data-zoom="2">2×</button>
+      <button data-zoom="4">4×</button>
+      <button data-zoom="8">8×</button>
+    </div>
+    <div id="tools">
+      <button id="align-btn" title="Line labels up with what you see">Align</button>
+      <button id="settings-btn" title="Settings">⚙︎</button>
+    </div>
+  </div>
+
+  <div id="align-hint" hidden>Drag until the dotted skyline sits on the real one, then tap <b>Done</b>.
+    <button id="align-done">Done</button></div>
+  <div id="toast" hidden></div>
+
+  <section id="start" class="sheet-full">
+    <img src="icons/icon.svg" alt="" width="84" height="84">
+    <h1>Binoculars</h1>
+    <p>Point your phone at a view. Binoculars labels the towns, peaks, landmarks and countries
+      you can actually see — allowing for hills and the curve of the earth.</p>
+    <button id="start-btn" class="primary">Start</button>
+    <button id="demo-btn" class="secondary">Try it from Marbella (looking towards Africa)</button>
+    <p class="small">Needs your camera, compass and location. Nothing leaves your phone except
+      map requests to OpenStreetMap and AWS terrain tiles.</p>
+  </section>
+
+  <section id="loading" class="sheet-full" hidden>
+    <div class="spinner"></div>
+    <p id="loading-text">Finding you…</p>
+  </section>
+
+  <section id="info" class="sheet" hidden>
+    <button class="close" data-close="info">✕</button>
+    <h2 id="info-name"></h2>
+    <p id="info-kind" class="muted"></p>
+    <dl>
+      <dt>Distance</dt><dd id="info-distance"></dd>
+      <dt>Direction</dt><dd id="info-bearing"></dd>
+      <dt>Height</dt><dd id="info-height"></dd>
+      <dt>Can you see it?</dt><dd id="info-visible"></dd>
+    </dl>
+    <p class="links"><a id="info-wiki" target="_blank" rel="noopener">Wikipedia</a>
+      <a id="info-map" target="_blank" rel="noopener">Google Maps</a></p>
+  </section>
+
+  <section id="settings" class="sheet" hidden>
+    <button class="close" data-close="settings">✕</button>
+    <h2>Settings</h2>
+    <label>Your height above the ground <span id="hag-val"></span>
+      <input id="hag" type="range" min="1" max="300" step="1"></label>
+    <p class="muted small">Raise this on a balcony, tower or rooftop. You are at <span id="eye-val"></span> above sea level.</p>
+    <label>Camera field of view <span id="fov-val"></span>
+      <input id="fov" type="range" min="40" max="90" step="1"></label>
+    <p class="muted small">If labels drift apart from things as you turn, adjust this.</p>
+    <label class="row"><input id="show-hidden" type="checkbox"> Show hidden places (greyed out)</label>
+    <label class="row"><input id="show-skyline" type="checkbox"> Show computed skyline</label>
+    <div class="buttons">
+      <button id="reset-align" class="secondary">Reset alignment</button>
+      <button id="reload-data" class="secondary">Reload map data</button>
+    </div>
+    <p class="muted small">Places © OpenStreetMap contributors. Terrain: Mapzen / AWS Terrain Tiles.
+      Borders: Natural Earth.</p>
+  </section>
+
+  <script type="module" src="js/app.mjs"></script>
+</body>
+</html>
