@@ -917,9 +917,9 @@ $('reset-align').addEventListener('click', () => {
 $('reload-data').addEventListener('click', async () => {
   if (world.lat == null || world.busy) return;
   show('settings', false);
-  toast('Reloading place names…', 0);
+  // The place-name line shows progress, then goes or offers Retry; terrain returning first is
+  // not the names being done.
   await loadWorld(world.lat, world.lon, { fresh: true });
-  toast('Place names reloaded.');
 });
 
 $('status-retry').addEventListener('click', async () => {

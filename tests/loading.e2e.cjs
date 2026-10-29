@@ -75,6 +75,20 @@ const check = (name, ok, detail = '') => {
     await p2.click('#settings [data-close]');
     const afterClose = await p2.isVisible('#status');
     check('the place-name line steps aside while a sheet is open', !overSheet && afterClose, JSON.stringify({ overSheet, afterClose }));
+    // Fault: Reload in settings says "Place names reloaded." as soon as the terrain is back,
+    // while the names are still loading or have failed. Edge: every server fails.
+    await p2.waitForFunction(() => !window.__binoculars.world.busy, null, { timeout: 120000 });
+    await p2.click('#settings-btn');
+    await p2.click('#reload-data');
+    let falseDone = null;
+    for (let i = 0; i < 50 && !falseDone; i++) {
+      falseDone = await p2.evaluate(() => {
+        const t = document.getElementById('toast');
+        return !t.hidden && /reloaded/i.test(t.textContent) && !window.__binoculars.world.placesDone ? t.textContent : null;
+      });
+      await p2.waitForTimeout(200);
+    }
+    check('Reload never says done while names are still loading or failed', !falseDone, JSON.stringify(falseDone));
   }
 
   // 3. Fault: when location is refused or unavailable, the browser's own error text appears in
