@@ -109,13 +109,27 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await p.uncheck('#show-skyline');
   check('skyline toggle saves', await st(() => JSON.parse(localStorage.getItem('binoculars:settings:v1')).showSkyline === false));
   await p.check('#show-skyline');
+  // Fault: changing height threw away the loaded place names and fetched them all again, which
+  // on first use (nothing saved yet) blanks the labels for minutes. Edge: no saved list.
+  const saved = await st(() => {
+    const s = localStorage.getItem('binoculars:places:v1');
+    localStorage.removeItem('binoculars:places:v1');
+    return s;
+  });
+  let overpass = 0;
+  const countOverpass = (r) => /\/interpreter/.test(r.url()) && overpass++;
+  p.on('request', countOverpass);
   const eye0 = await st(() => window.__binoculars.world.eye);
   const vis0 = await st(() => window.__binoculars.world.places.filter((x) => x.visible).length);
   await p.$eval('#hag', (el) => { el.value = 300; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); });
-  await p.waitForFunction((e) => window.__binoculars.world.eye > e + 200 && window.__binoculars.world.placesDone, eye0, { timeout: 120000 });
+  await p.waitForFunction((e) => window.__binoculars.world.eye > e + 200 && !window.__binoculars.world.busy, eye0, { timeout: 120000 });
   await p.waitForTimeout(500);
+  const kept = await st(() => window.__binoculars.world.places.length);
+  check('changing height keeps the loaded place names', overpass === 0 && kept > 500, `${overpass} place-name requests, ${kept} places`);
   const vis1 = await st(() => window.__binoculars.world.places.filter((x) => x.visible).length);
   check('raising height above ground lets you see more', vis1 > vis0, `eye ${eye0.toFixed(0)} m: ${vis0} visible; +298 m: ${vis1} visible`);
+  p.off('request', countOverpass);
+  await st((s) => localStorage.setItem('binoculars:places:v1', s), saved);
   await p.$eval('#fov', (el) => { el.value = 80; el.dispatchEvent(new Event('input')); });
   check('field of view setting applies', await st(() => window.__binoculars.settings.fov === 80));
   await p.click('#reset-align');

@@ -169,6 +169,7 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     loading('Loading terrain…');
     const gen = ++world.gen;
     world.places = [];
+    world.items = [];
     world.placesDone = false;
     // Place names come from a slow public server, so they stream in after the view is up.
     let ready;
@@ -179,12 +180,14 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     then(() => toast('Loading place names…', 0));
     loadPlaces(lat, lon, RANGE_KM, {
       fresh,
-      onPart: (items, done, total) =>
+      onPart: (items, done, total) => {
+        world.items = items;
         then(async () => {
           await computePlaces(items, gen);
           if (done < total) toast(`Loading place names ${done} / ${total}…`, 0);
           else toast('Place names loaded.', 2000);
-        }),
+        });
+      },
     })
       .catch((err) => {
         console.warn(err);
@@ -246,7 +249,8 @@ async function computePlaces(places, gen) {
     seen.set(p.name, [...twins, p]);
     return true;
   });
-  if (gen === world.gen) world.places = unique;
+  // A newer part or a height change may have finished first; only the latest list wins.
+  if (gen === world.gen && places === world.items) world.places = unique;
 }
 
 function skylineAt(az) {
@@ -612,10 +616,18 @@ $('hag').addEventListener('input', (e) => {
   renderSettingValues();
   saveSettings();
 });
-// Height changes what is visible, so recompute once the slider is let go.
+// Height changes only what is visible, so recompute from the places already loaded once the
+// slider is let go.
 $('hag').addEventListener('change', async () => {
   if (world.lat == null || world.busy) return;
-  await loadWorld(world.lat, world.lon);
+  world.busy = true;
+  try {
+    world.eye = terrain.elev(world.lat, world.lon) + settings.hag;
+    await computeHorizon();
+    await computePlaces(world.items, world.gen);
+  } finally {
+    world.busy = false;
+  }
   renderSettingValues();
   lastBannerKey = '';
 });
