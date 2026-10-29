@@ -26,8 +26,16 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     await p.waitForTimeout(600);
   };
 
+  // Pages sites under one github.io account share an origin: the offline helper must leave
+  // other sites' caches alone (fault: it deletes every cache that isn't its own).
+  await p.goto(BASE + 'icons/icon.svg');
+  await p.evaluate(() => caches.open('another-site-v1'));
+
   // 1. Real network: Marbella seafront facing Jebel Musa.
   await p.goto(BASE + '?lat=36.5068&lon=-4.886&heading=215&pitch=0.3&nocam=1&autostart=1');
+  // The app registers it only over https; register it here so the local server runs it too.
+  await p.evaluate(async (u) => { await navigator.serviceWorker.register(u); await navigator.serviceWorker.ready; }, BASE + 'sw.js');
+  check("offline helper keeps other sites' caches", await p.evaluate(() => caches.has('another-site-v1')));
   await ready();
   const banner = await p.$$eval('#banner > div', (d) => d.map((x) => x.textContent));
   check('banner says Africa / Morocco facing Jebel Musa', banner[0] === 'AFRICA' && banner[1] === 'Morocco', banner.join(' | '));

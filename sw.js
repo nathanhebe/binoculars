@@ -15,7 +15,8 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL && k !== TILES).map((k) => caches.delete(k))))
+      // Only our own old versions: other Pages sites on this github.io origin share the cache store.
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('binoculars-') && k !== SHELL && k !== TILES).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
