@@ -109,7 +109,8 @@ function readCache(lat, lon) {
     const c = JSON.parse(localStorage.getItem(CACHE_KEY));
     if (!c || Date.now() - c.t > CACHE_MAX_AGE) return null;
     const km = Math.hypot((c.lat - lat) * 111, (c.lon - lon) * 111 * Math.cos((lat * Math.PI) / 180));
-    return km < 15 && c.range >= 150 ? c.items : null;
+    // Hamlets and viewpoints are only asked for within 12 km, so a bigger move needs a refetch.
+    return km < 2 && c.range >= 150 ? c.items : null;
   } catch {
     return null;
   }
