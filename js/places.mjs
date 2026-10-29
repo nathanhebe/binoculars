@@ -7,6 +7,7 @@ const ENDPOINTS = [
   'https://overpass.private.coffee/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
+const PART_TIMEOUT = 25; // seconds each server gets for one part
 const CACHE_KEY = 'binoculars:places:v1';
 const CACHE_MAX_AGE = 30 * 24 * 3600 * 1000;
 
@@ -33,7 +34,7 @@ function bbox(lat, lon, km) {
   return `${(lat - dLat).toFixed(4)},${(lon - dLon).toFixed(4)},${(lat + dLat).toFixed(4)},${(lon + dLon).toFixed(4)}`;
 }
 
-// The public servers take 30-50 s per query and time out on one big one, so ask in parts,
+// The public servers are slow when busy and time out on one big query, so ask in small parts,
 // most useful first, and show each part as it arrives.
 function queries(lat, lon, rangeKm) {
   const far = bbox(lat, lon, rangeKm);
@@ -54,7 +55,7 @@ function queries(lat, lon, rangeKm) {
   node["place"="hamlet"]["name"](${close});
   nwr["leisure"="marina"]["name"](${near});
   nwr["tourism"="viewpoint"]["name"](${close});`,
-  ].map((q) => `[out:json][timeout:120];\n(\n  ${q}\n);\nout center tags;`);
+  ].map((q) => `[out:json][timeout:${PART_TIMEOUT}];\n(\n  ${q}\n);\nout center tags;`);
 }
 
 function kindOf(t) {
@@ -172,7 +173,8 @@ async function fetchPart(q) {
   let lastErr;
   for (const url of ENDPOINTS) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 130000);
+    // A server that has not answered in 25 s rarely does, so try the next one.
+    const timer = setTimeout(() => ctrl.abort(), PART_TIMEOUT * 1000);
     try {
       const res = await fetch(url, {
         method: 'POST',

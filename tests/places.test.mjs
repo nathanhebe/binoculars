@@ -41,3 +41,28 @@ test('a bundled town gives way to the same town from OpenStreetMap', () => {
   ];
   assert.deepEqual(withMajor(osm, major).map((p) => p.id), ['n1', 'ne2', 'ne3']);
 });
+
+// Fault: a server that accepts the request and never answers holds that part for over two
+// minutes before the next server is tried. Edge: it never answers at all.
+test('a server that never answers is given up on after 25 s for the next one', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const asked = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (url, { body, signal }) => {
+    asked.push({ url, body: decodeURIComponent(body) });
+    return new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('aborted'))));
+  };
+  t.after(() => (globalThis.fetch = realFetch));
+  loadPlaces(36.5, -4.9, 150, { fresh: true });
+  const settle = () => new Promise((r) => setImmediate(r));
+  await settle();
+  assert.equal(new Set(asked.map((a) => a.url)).size, 1, 'both parts start on the first server');
+  t.mock.timers.tick(24999);
+  await settle();
+  assert.equal(asked.length, 2, 'gave up before 25 s');
+  t.mock.timers.tick(1);
+  await settle();
+  assert.equal(asked.length, 4, 'still waiting on the first server after 25 s');
+  assert.equal(new Set(asked.map((a) => a.url)).size, 2);
+  assert.ok(asked.every((a) => a.body.includes('[timeout:25]')), 'server told to give up after 25 s too');
+});
