@@ -168,8 +168,10 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     world.lon = lon;
     loading('Loading terrain…');
     const gen = ++world.gen;
+    // After a move, show the places already loaded from the new position until fresh ones arrive.
+    const prev = world.items ?? [];
     world.places = [];
-    world.items = [];
+    world.items = prev;
     world.placesDone = false;
     // Place names come from a slow public server, so they stream in after the view is up.
     let ready;
@@ -178,6 +180,7 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     let chain = terrainReady;
     const then = (fn) => (chain = chain.then(() => gen === world.gen && fn()));
     then(() => toast('Loading place names…', 0));
+    then(() => computePlaces(prev, gen));
     loadPlaces(lat, lon, RANGE_KM, {
       fresh,
       onPart: (items, done, total, failed) => {

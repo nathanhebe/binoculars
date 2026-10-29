@@ -1,22 +1,27 @@
 // Fault: a place-name load for the first position, still answering after a move of over 2 km,
 // overwrites the new position's place list. The first position's replies are held until the
 // second load finishes, then released; a height change follows.
+// Fault 2: every move of over 2 km blanks the labels until the new names arrive. A third
+// position's replies are held, and the labels must still show while they are.
 // Place names are faked; terrain comes from the live server. Run like browser.e2e.cjs:
 //   NODE_PATH=<dir with playwright installed>/node_modules node tests/move.e2e.cjs
 const { chromium } = require('playwright');
 const A = { latitude: 36.5068, longitude: -4.886 };
 const B = { latitude: 36.55, longitude: -4.886 }; // ~4.8 km north
+const C = { latitude: 36.5932, longitude: -4.886 }; // ~4.8 km further
 (async () => {
   const b = await chromium.launch({ channel: 'chromium' });
   const ctx = await b.newContext({ viewport: { width: 430, height: 860 }, geolocation: A, permissions: ['geolocation'] });
   const p = await ctx.newPage();
   let phase = 'A';
   const held = [];
+  const heldC = [];
   const reply = (r, name) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ elements: [
     { type: 'node', id: Math.floor(Math.random() * 1e9), lat: 36.45, lon: -4.95, tags: { place: 'town', name } }] }) });
   await p.route(/\/interpreter/, (r) => {
     if (phase === 'A') return held.push(r);
     if (phase === 'B') return reply(r, 'Newtown');
+    if (phase === 'C') return heldC.push(r);
     return reply(r, 'Oldtown');
   });
   const base = process.env.BASE_URL || "http://localhost:8765/";
@@ -37,7 +42,18 @@ const B = { latitude: 36.55, longitude: -4.886 }; // ~4.8 km north
   console.log('held from first position:', held.length, JSON.stringify(names));
   const ok = names.items.includes('Newtown') && !names.items.includes('Oldtown') && names.places.includes('Newtown');
   console.log(ok ? 'PASS new position kept its places' : 'FAIL old position overwrote the places');
+
+  const atB = await p.evaluate(() => window.__binoculars.world.places.find((x) => x.name === 'Newtown')?.d);
+  phase = 'C';
+  await ctx.setGeolocation(C);
+  await p.waitForFunction(() => window.__binoculars.world.gen === 3 && !window.__binoculars.world.busy, null, { timeout: 300000, polling: 200 });
+  await p.waitForTimeout(1000);
+  const atC = await p.evaluate(() => window.__binoculars.world.places.find((x) => x.name === 'Newtown')?.d);
+  console.log('names held after second move:', heldC.length, 'Newtown distance from B, then C:', atB, atC);
+  const ok2 = heldC.length > 0 && atC > 0 && Math.abs(atC - atB) > 3000;
+  console.log(ok2 ? 'PASS labels stay up, measured from the new position' : 'FAIL labels blank while new names load');
+  for (const r of heldC) await r.abort();
   await ctx.close();
   await b.close();
-  process.exit(ok ? 0 : 1);
+  process.exit(ok && ok2 ? 0 : 1);
 })().catch((e) => { console.error(e.message); process.exit(2); });
