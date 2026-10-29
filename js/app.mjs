@@ -50,6 +50,22 @@ function toast(msg, ms = 5000) {
   clearTimeout(toast.timer);
   if (ms) toast.timer = setTimeout(() => (t.hidden = true), ms);
 }
+// The slim line above the controls: parts loaded so far, 'failed' for Retry, or null to hide.
+function placeStatus(state) {
+  const s = $('status');
+  s.hidden = !state;
+  if (!state) return;
+  const failed = state === 'failed';
+  s.classList.toggle('failed', failed);
+  $('status-retry').hidden = !failed;
+  if (failed) {
+    $('status-text').textContent = "Couldn't load all place names ·";
+    return;
+  }
+  const { done, total } = state;
+  $('status-text').textContent = done ? `Finding more names… ${done}/${total}` : 'Finding more names…';
+  $('status-bar').firstElementChild.style.width = `${total ? (100 * done) / total : 0}%`;
+}
 function loading(text) {
   $('loading-text').textContent = text;
 }
@@ -196,9 +212,10 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
         world.items = shown;
         await computePlaces(shown, gen);
       });
-    then(() => toast('Loading place names…', 0));
+    then(() => placeStatus({ done: 0, total: 0 }));
     then(async () => (major = await majorReady));
     refresh();
+    let gaveUp = false;
     loadPlaces(lat, lon, RANGE_KM, {
       fresh,
       onPart: (items, done, total, failed) => {
@@ -206,18 +223,19 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
         if (gen !== world.gen) return;
         osm = { items, done, total, failed };
         refresh();
-        then(() => {
-          if (done < total) toast(`Loading place names ${done} / ${total}…`, 0);
-          else if (failed) toast("Some place names didn't load — try Reload map data in settings.", 8000);
-          else toast('Place names loaded.', 2000);
-        });
+        if (done < total) then(() => placeStatus({ done, total }));
       },
     })
       .catch((err) => {
         console.warn(err);
-        then(() => toast("Couldn't load place names right now — showing the skyline and countries only.", 8000));
+        gaveUp = true;
       })
-      .finally(() => then(() => (world.placesDone = true)));
+      .finally(() =>
+        then(() => {
+          world.placesDone = true;
+          placeStatus(gaveUp || osm?.failed ? 'failed' : null);
+        })
+      );
     const [, tiles] = await Promise.all([
       loadCountries(),
       terrain.load(lat, lon, (n, total) => loading(`Loading terrain ${n} / ${total}…`)),
@@ -541,7 +559,7 @@ function setZoom(z) {
 }
 
 addEventListener('pointerdown', (e) => {
-  if (e.target.closest('.sheet, #hud, #align-hint, .sheet-full')) return;
+  if (e.target.closest('.sheet, #hud, #align-hint, #notices, .sheet-full')) return;
   pointers.set(e.pointerId, [e.clientX, e.clientY]);
   dragMoved = false;
   if (pointers.size === 2) {
@@ -682,6 +700,13 @@ $('reload-data').addEventListener('click', async () => {
   await loadWorld(world.lat, world.lon, { fresh: true });
   lastBannerKey = '';
   toast('Map data reloaded.');
+});
+
+$('status-retry').addEventListener('click', async () => {
+  if (world.lat == null || world.busy) return;
+  placeStatus({ done: 0, total: 0 });
+  await loadWorld(world.lat, world.lon, { fresh: true });
+  lastBannerKey = '';
 });
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

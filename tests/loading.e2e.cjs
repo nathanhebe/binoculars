@@ -36,9 +36,37 @@ const check = (name, ok, detail = '') => {
   const labels = await p.$$eval('.label:not([hidden]) .n', (ls) => ls.map((l) => l.textContent));
   check('bundled towns labelled while place names never answer', shown,
     `${((Date.now() - t0) / 1000).toFixed(1)} s, ${held.length} requests held, labels: ${labels.join(', ')}`);
+  const pill = await p.evaluate(() => {
+    const s = document.getElementById('status');
+    return s && !s.hidden && s.getBoundingClientRect().height > 0 ? s.textContent.trim() : '';
+  });
+  check('a slim line says more names are on the way', /^Finding more names…/.test(pill), pill);
   await p.screenshot({ path: `${OUT}/loading-held.png` });
   for (const r of held.splice(0)) await r.abort().catch(() => {});
   await p.unroute(/\/interpreter/);
+
+  // 2. Fault: when every server fails, a message says so and then goes, with no way to try
+  // again short of finding Reload in settings. Here every server answers 503.
+  const p2 = await ctx.newPage();
+  p2.on('pageerror', (e) => errors.push(String(e)));
+  let asked = 0;
+  await p2.route(/\/interpreter/, (r) => { asked++; r.fulfill({ status: 503, body: 'busy' }); });
+  await p2.goto(BASE + '?nocam=1');
+  await p2.evaluate(() => localStorage.removeItem('binoculars:places:v1'));
+  await p2.goto(BASE + '?lat=36.5068&lon=-4.886&heading=215&pitch=0.3&nocam=1&autostart=1');
+  const retry = await p2.waitForSelector('#status-retry', { state: 'visible', timeout: 90000 }).then(() => true, () => false);
+  const failText = retry ? (await p2.textContent('#status')).trim() : '';
+  check('a lasting line offers Retry when place names fail', retry && /^Couldn't load all place names/.test(failText), failText);
+  if (retry) {
+    await p2.screenshot({ path: `${OUT}/loading-failed.png` });
+    await p2.waitForTimeout(6000);
+    const visibleLater = await p2.isVisible('#status-retry');
+    const before = asked;
+    await p2.click('#status-retry');
+    const t1 = Date.now();
+    while (asked === before && Date.now() - t1 < 10000) await p2.waitForTimeout(100);
+    check('Retry stays up and asks the servers again', visibleLater && asked > before, `${before} requests before, ${asked} after`);
+  }
 
   check('no page errors', errors.length === 0, errors.join(' | '));
   await b.close();
