@@ -246,9 +246,39 @@ function tileUrl({ z, x, y }) {
   return template.then((t) => t.replace('{z}', z).replace('{x}', x).replace('{y}', y));
 }
 
+// Each tile's places are saved on the phone for 30 days, so a second look from nearby needs no
+// network. Kept by the app, not the service worker, which never stores place names. Bump the
+// name here and in sw.js's KEEP if what placesOf returns changes, so old entries are deleted.
+const SAVED = 'binoculars-places-v1';
+const SAVED_MAX_AGE = 30 * 24 * 3600 * 1000;
+const savedKey = ({ z, x, y }) => `places/${z}/${x}/${y}`;
+
+async function readSaved(t) {
+  try {
+    const hit = await (await caches.open(SAVED)).match(savedKey(t));
+    const body = hit && (await hit.json());
+    return body && Date.now() - body.t < SAVED_MAX_AGE && Array.isArray(body.places) ? body.places : null;
+  } catch {
+    return null; // no Cache API (private mode, old browser) or a bad entry: fetch it
+  }
+}
+
+async function save(t, places) {
+  try {
+    const body = JSON.stringify({ t: Date.now(), places });
+    await (await caches.open(SAVED)).put(savedKey(t), new Response(body, { headers: { 'Content-Type': 'application/json' } }));
+  } catch {
+    // Storage full or blocked: fine, it is fetched again next time.
+  }
+}
+
 async function fetchTile(t) {
+  const saved = await readSaved(t);
+  if (saved) return saved;
   const res = await get(await tileUrl(t));
-  return placesOf(decodeTile(new Uint8Array(await res.arrayBuffer()), t.z, t.x, t.y, LAYERS));
+  const places = placesOf(decodeTile(new Uint8Array(await res.arrayBuffer()), t.z, t.x, t.y, LAYERS));
+  save(t, places);
+  return places;
 }
 
 // Resolves with every place found; calls onPart(placesSoFar, tilesDone, tilesTotal, tilesFailed)

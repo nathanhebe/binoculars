@@ -34,7 +34,9 @@ A static web app with no build step. On start it loads, for 150 km around you:
   sight, with earth curvature and standard refraction;
 - place names (towns, villages, peaks, airports) from OpenStreetMap through OpenFreeMap's
   vector map tiles: 25 or so tiles, the one under you first, four at a time, each shown as it
-  arrives, with "Finding more names… n/N" until they are all in (`js/tiles.mjs`);
+  arrives, with "Finding more names… n/N" until they are all in (`js/tiles.mjs`); each tile's
+  names are saved on the phone for 30 days, so a second look from nearby asks only for tiles it
+  has not seen;
 - lighthouses, capes, castles, marinas and viewpoints, which the map tiles leave out, from the
   public Overpass API in two parts; they appear when it answers and are saved on the phone for
   30 days while you stay within 2 km, and nothing waits for them if it is busy;

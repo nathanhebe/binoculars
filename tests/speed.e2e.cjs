@@ -88,6 +88,57 @@ const onScreen = (p) =>
     await ctx.close();
   }
 
+  // 3. Fault: every visit fetches every tile again, so a second look from the same spot waits as
+  // long as the first. Edge: the same spot again in the same browser, Overpass never answering;
+  // then the saved tiles made 31 days old, past their limit.
+  {
+    const ctx = await b.newContext({ viewport: { width: 430, height: 860 } });
+    const p = await ctx.newPage();
+    p.on('pageerror', (e) => errors.push(String(e)));
+    const held = [];
+    await p.route(/\/interpreter/, (r) => held.push(r));
+    const asked = await routeTiles(p, { delay: 400 });
+    const tilesIn = () => p.waitForFunction(() => window.__binoculars?.world.horizon.length && document.getElementById('status').hidden, null, { timeout: 60000, polling: 200 });
+    const tileNames = () => p.evaluate(() => {
+      const tiles = new Set((window.__binoculars?.world.places ?? []).filter((x) => x.id.startsWith('t')).map((x) => x.name));
+      return [...document.querySelectorAll('.label:not([hidden]) .n, #target:not([hidden]) .t-name')].map((l) => l.textContent).filter((n) => tiles.has(n));
+    });
+    await p.goto(BASE + MARBELLA);
+    await tilesIn();
+    const first = asked.length;
+    const t0 = Date.now();
+    await p.goto(BASE + MARBELLA);
+    let seen = [];
+    while (Date.now() - t0 < 5000 && !seen.length) {
+      await p.waitForTimeout(200);
+      seen = await tileNames();
+    }
+    await tilesIn();
+    check('a second look from the same spot asks for no map tiles and names them within 5 s', first > 0 && asked.length === first && seen.length > 0,
+      `${first} requests the first time, ${asked.length - first} the second; ${((Date.now() - t0) / 1000).toFixed(1)} s, on screen: ${seen.join(', ')}`);
+    const aged = await p.evaluate(async () => {
+      let n = 0;
+      for (const name of await caches.keys()) {
+        if (!/places/.test(name)) continue;
+        const c = await caches.open(name);
+        for (const req of await c.keys()) {
+          const body = await (await c.match(req)).json();
+          body.t -= 31 * 24 * 3600 * 1000;
+          await c.put(req, new Response(JSON.stringify(body)));
+          n++;
+        }
+      }
+      return n;
+    });
+    const second = asked.length;
+    await p.goto(BASE + MARBELLA);
+    await tilesIn();
+    check('tiles saved over 30 days ago are asked for again', aged > 0 && asked.length > second,
+      `${aged} saved tiles aged, ${asked.length - second} requests after`);
+    for (const r of held.splice(0)) await r.abort().catch(() => {});
+    await ctx.close();
+  }
+
   check('no page errors', errors.length === 0, errors.join(' | '));
   await b.close();
   process.exit(results.every(Boolean) ? 0 : 1);

@@ -1,7 +1,9 @@
 // Offline shell plus a cache of terrain tiles. Place names come from the network (and the
-// app's own localStorage cache), so they are never served stale from here.
+// app's own caches, which expire), so they are never served stale from here.
 const SHELL = 'binoculars-shell-v1';
 const TILES = 'binoculars-tiles-v1';
+// The app's own saved place names (js/tiles.mjs), 30 days each; same name as there.
+const KEEP = [SHELL, TILES, 'binoculars-places-v1'];
 const FILES = [
   './', 'index.html', 'style.css', 'manifest.webmanifest', 'assets/countries.json', 'assets/places-major.json',
   'assets/peaks-major.json', 'js/app.mjs', 'js/geo.mjs', 'js/terrain.mjs', 'js/places.mjs', 'js/tiles.mjs', 'js/countries.mjs', 'js/orientation.mjs',
@@ -16,7 +18,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
       // Only our own old versions: other Pages sites on this github.io origin share the cache store.
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('binoculars-') && k !== SHELL && k !== TILES).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('binoculars-') && !KEEP.includes(k)).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
