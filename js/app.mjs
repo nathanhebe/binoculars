@@ -67,7 +67,9 @@ async function start(fixed) {
   }
   await motion;
   listenOrientation();
-  await camera;
+  // Ask for location only after the camera prompt is answered; a demo or a fixed place needs
+  // no location, so it carries on while the camera prompt is still open.
+  if (!fixed) await camera;
   let pos = fixed;
   if (!pos) {
     try {

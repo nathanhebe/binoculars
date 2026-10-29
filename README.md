@@ -49,8 +49,8 @@ Tests:
 node --test tests/*.test.mjs
 ```
 
-The browser checks (`tests/browser.e2e.cjs`, `tests/move.e2e.cjs`) need Playwright; see the top
-of each file.
+The browser checks (`tests/browser.e2e.cjs`, `tests/move.e2e.cjs`, `tests/demo.e2e.cjs`) need
+Playwright; see the top of each file.
 
 Data © OpenStreetMap contributors; terrain from Mapzen / AWS Terrain Tiles; borders from Natural
 Earth.
