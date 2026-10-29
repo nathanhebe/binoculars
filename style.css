@@ -159,6 +159,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #status.failed { color: var(--text); }
 #status.failed #status-bar { display: none; }
 
+#chip-hint { padding: 4px 12px; border-radius: 14px; background: var(--panel); font-size: 12.5px; color: var(--muted); }
 /* The Food, Shops, Travel and Sights chips: the bottom line of the stack, just above the bar. */
 #chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 #chips[hidden] { display: none; }
@@ -207,7 +208,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
    visibility, not display, so the bar keeps its place and messages still sit just above it. */
 body.sheet-open #hud, body.sheet-open #target, body.sheet-open #reticle, body.sheet-open #empty { visibility: hidden; }
 /* Only passing messages stay in front of a sheet; the lasting lines would cover its rows. */
-body.sheet-open #status, body.sheet-open #cam-off, body.sheet-open #align-hint, body.sheet-open #chips { visibility: hidden; }
+body.sheet-open #status, body.sheet-open #cam-off, body.sheet-open #align-hint, body.sheet-open #chips, body.sheet-open #chip-hint { visibility: hidden; }
 .sheet h2 { margin: 0 36px 2px 0; font-size: 21px; }
 #info-lead { margin: 0 36px 0 0; font-size: 18px; line-height: 1.4; }
 #info-name { font-size: 21px; }

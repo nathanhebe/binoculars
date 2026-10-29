@@ -354,7 +354,7 @@ const isPoi = (p) => CATS.includes(p.kind);
 const asked = (p) => isPoi(p) && settings.cats[p.kind];
 const poiTiles = new Map(); // 'x/y' → 'loading' or 'done'
 const poiRaw = new Map(); // id → point of interest as the tile gave it
-const poiLoad = { key: '', timer: null, queue: [], busy: 0 };
+const poiLoad = { key: '', timer: null, waiting: false, queue: [], busy: 0 };
 
 // Distance, direction, angle and whether hills or the curve hide it, as computePlaces does.
 function measurePoi(p) {
@@ -385,8 +385,10 @@ function planPois(heading, halfDeg) {
   poiLoad.key = key;
   clearTimeout(poiLoad.timer);
   poiLoad.queue = [];
+  poiLoad.waiting = !!key;
   if (!key) return;
   poiLoad.timer = setTimeout(() => {
+    poiLoad.waiting = false;
     poiLoad.queue = poiPlan(world.lat, world.lon, heading, halfDeg / zoom + 5, zoom).filter((t) => !poiTiles.has(`${t.x}/${t.y}`));
     for (let i = poiLoad.busy; i < POI_WORKERS; i++) poiWorker();
   }, POI_WAIT_MS);
@@ -435,6 +437,31 @@ function shownPlaces() {
   const list = pois.length ? [...world.places, ...pois].sort((a, b) => b.score - a.score) : world.places;
   Object.assign(shown, { places: world.places, pois: world.pois, key, list });
   return list;
+}
+
+// A chip is on but none of its places is in the picture: say so, rather than leave the user
+// wondering whether the chip works. While tiles this way are still coming, say it is looking.
+const HINT_DELAY_MS = 400;
+const CAT_WORDS = { food: 'food places', shops: 'shops', travel: 'travel stops', sights: 'sights' };
+let hintSince = null;
+function updateChipHint(heading, halfDeg, now) {
+  const el = $('chip-hint');
+  const reach = poiRange(view.zoom) * 1000;
+  const missing = CATS.filter(
+    (c) => settings.cats[c] && !world.pois.some((p) => p.kind === c && p.d <= reach && Math.abs(angleDiff(p.brg, heading)) <= halfDeg)
+  );
+  if (!missing.length || $('chips').hidden) {
+    hintSince = null;
+    el.hidden = true;
+    return;
+  }
+  hintSince ??= now;
+  if (now - hintSince < HINT_DELAY_MS) return;
+  const words = missing.map((c) => CAT_WORDS[c]).join(' or ');
+  const looking = world.measuredGen !== world.gen || poiLoad.waiting || poiLoad.busy > 0;
+  const text = looking ? `Looking for ${words}…` : `No ${words} this way`;
+  if (el.textContent !== text) el.textContent = text;
+  el.hidden = false;
 }
 
 function renderChips() {
@@ -619,6 +646,7 @@ function frame() {
   // Keep labels off the card under the reticle.
   const { drawn, hiddenHere } = drawLabels(places, project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66], top, bottom, now);
   updateEmpty(!drawn.length && !target && world.placesDone, hiddenHere, top, now);
+  updateChipHint(heading, (Math.atan(W / 2 / f) * 180) / Math.PI, now);
   updateReadout(heading, pitch);
   if (world.horizon.length) {
     const scan = scanSkyline(heading);

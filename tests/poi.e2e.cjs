@@ -151,7 +151,24 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
   check('the card under the reticle says "Restaurant · distance"', FOOD.includes(cardMeta[0]) && /^Restaurant · \d+ m$/.test(cardMeta[1] || ''), JSON.stringify(cardMeta));
   await p.screenshot({ path: `${OUT}/poi-card.png` });
 
-  // 5. Food off again hides them.
+  // 5. Facing the sea there is no food: a short note says so; facing the old town it goes.
+  await p.evaluate(() => Object.assign(window.__binoculars.view, { heading: 215, pitch: 0.3 }));
+  const hint = await p
+    .waitForFunction(() => {
+      const el = document.getElementById('chip-hint');
+      // "Looking for food places…" may come first while the tiles this way load.
+      return el && !el.hidden && !/^Looking/.test(el.textContent) && el.textContent;
+    }, null, { timeout: 8000 })
+    .then((h) => h.jsonValue(), () => null);
+  check('facing the sea with Food on, a note says "No food places this way"', hint === 'No food places this way', String(hint));
+  await p.screenshot({ path: `${OUT}/poi-215-food-on-hint.png` });
+  await p.evaluate(() => Object.assign(window.__binoculars.view, { heading: 20, pitch: 1 }));
+  const gone = await p
+    .waitForFunction(() => document.getElementById('chip-hint')?.hidden, null, { timeout: 5000 })
+    .then(() => true, () => false);
+  check('facing the old town the note goes', gone);
+
+  // 6. Food off again hides them.
   await p.evaluate(() => Object.assign(window.__binoculars.view, { heading: 20, pitch: 1 }));
   r = await attempt(() => chip('Food'));
   check('with Food turned off the restaurants go', r === undefined && (await waitFood(false)), JSON.stringify(await foodLabels()));

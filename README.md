@@ -26,7 +26,8 @@ full screen.
   within a few km of you (4 km at 1×, more as you zoom, up to 20 km), each with a coloured dot and
   its type ("Restaurant · 350 m"). A place a chip asks for is greyed in even when a hill hides it,
   so you can see which way it is. Zoomed in to 4× or more, castles, viewpoints, stations and ferry
-  ports show with no chip on. Chips start off and are remembered. Tap one of these places for its
+  ports show with no chip on. Chips start off and are remembered. When a chip is on and none of
+  its places is in the picture, a note says so ("No food places this way"). Tap one of these places for its
   opening hours and website, when OpenStreetMap has them.
 - On a balcony or tower, raise *Your height above the ground* in Settings.
 - No phone? **Try the demo: Spain → Africa** looks from Marbella across to Morocco; drag or use
