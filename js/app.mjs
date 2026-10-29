@@ -444,7 +444,8 @@ function frame() {
   const target = pickTarget(project, W, H, now);
   const cardY = placeReticle(target, W, H);
   // Keep labels off the card under the reticle.
-  drawLabels(project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66], top, now);
+  const { drawn, hiddenHere } = drawLabels(project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66], top, now);
+  updateEmpty(!drawn.length && !target && world.placesDone, hiddenHere, top, now);
   updateReadout(heading, pitch);
   if (world.horizon.length) {
     const scan = scanSkyline(heading);
@@ -580,14 +581,21 @@ function drawLabels(project, W, H, target, reserved, top, now) {
   const placed = [reserved];
   const drawn = [];
   const max = Math.round(MAX_LABELS * view.zoom);
+  // Hidden places in frame, counted only while nothing is labelled: the empty-view note offers them.
+  let hiddenHere = 0;
   for (const p of world.places) {
     if (drawn.length >= max) break;
-    if (!p.visible && !settings.showHidden) continue;
     if (p.id === target?.id) continue; // the card under the reticle names it
+    const skip = !p.visible && !settings.showHidden;
+    if (skip && drawn.length) continue;
     const pt = project(p.brg, p.angle);
     if (!pt) continue;
     const [sx, sy] = pt;
     if (sx < -20 || sx > W + 20 || sy < top - 40 || sy > H - 70) continue;
+    if (skip) {
+      hiddenHere++;
+      continue;
+    }
     const el = labelEl(p);
     const w = el._w;
     const h = el._h;
@@ -645,8 +653,34 @@ function drawLabels(project, W, H, target, reserved, top, now) {
     el._off ??= now;
     if (now - el._off > LABEL_FADE_MS) el.hidden = true;
   }
-  return drawn;
+  return { drawn, hiddenHere };
 }
+
+// With nothing labelled this way, say so under the banner, and offer the places hills hide. It
+// waits a moment before showing, so sweeping past a gap stays quiet.
+const EMPTY_DELAY_MS = 400;
+let emptySince = null;
+function updateEmpty(empty, hidden, top, now) {
+  const el = $('empty');
+  if (!empty) {
+    emptySince = null;
+    el.hidden = true;
+    return;
+  }
+  emptySince ??= now;
+  if (now - emptySince < EMPTY_DELAY_MS) return;
+  const text = `Nothing named in sight this way${hidden ? ` · ${hidden} hidden by hills` : ''}`;
+  if ($('empty-text').textContent !== text) $('empty-text').textContent = text;
+  $('empty-show').hidden = !hidden;
+  el.style.top = `${top}px`;
+  el.hidden = false;
+}
+$('empty-show').addEventListener('click', () => {
+  settings.showHidden = true;
+  $('show-hidden').checked = true;
+  saveSettings();
+  $('empty').hidden = true;
+});
 
 function updateReadout(heading, pitch) {
   $('heading').textContent = `${compass(heading)} ${Math.round(heading)}°`;
@@ -723,7 +757,7 @@ function setZoom(z) {
 }
 
 addEventListener('pointerdown', (e) => {
-  if (e.target.closest('.sheet, #hud, #align-hint, #notices, .sheet-full')) return;
+  if (e.target.closest('.sheet, #hud, #align-hint, #notices, .sheet-full, #empty')) return;
   pointers.set(e.pointerId, [e.clientX, e.clientY]);
   dragMoved = false;
   if (pointers.size === 2) {

@@ -13,7 +13,9 @@ full screen.
   the view.
 - The banner at the top names the continent and country you're pointing at, and a country hidden
   beyond the horizon. Labels show places you can actually see; things hidden by hills or the curve
-  of the earth are left out (Settings → *Show hidden places* greys them in).
+  of the earth are left out (Settings → *Show hidden places* greys them in). When nothing is
+  labelled the way you face, a note under the banner says so and how many places the hills hide,
+  with **Show** to grey them in.
 - Point the centre ring at a place and it locks on, with the place named in a card underneath.
   Tap the card, or any label, for its distance, height and links to Wikipedia and Google Maps.
 - **1× – 8×** zooms the picture; pinch works too.

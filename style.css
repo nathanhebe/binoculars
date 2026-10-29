@@ -58,6 +58,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #banner-note { color: var(--muted); }
 #banner-country:not(:empty) + #banner-note:not(:empty)::before { content: ' · '; }
 
+/* Under the banner when nothing is labelled this way. */
+#empty {
+  position: fixed; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px);
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 16px;
+  background: var(--panel); font-size: 13px; color: #dfe5f0; text-align: center;
+}
+#empty-show { flex: none; padding: 3px 12px; border-radius: 12px; border: 0; background: var(--accent); color: #111; font-weight: 600; }
+
 /* A ring at the centre; locked on a place it turns yellow and becomes four corner brackets
    around that place's dot. */
 #reticle {

@@ -221,6 +221,38 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await st(() => (window.__binoculars.settings.showHidden = false));
   check('labels stay below the banner on a phone with a notch', clear.tops.length > 0 && clear.tops.every((t) => t >= clear.bottom), JSON.stringify(clear));
 
+  // Fault: a view with nothing visible to name is just blank, with no word that the hills hide
+  // places there. Edges: places in frame all hidden (east, inland), and none at all (open sea).
+  const emptyNote = () => st(() => {
+    const e = document.getElementById('empty');
+    if (!e || e.hidden) return null;
+    const show = document.getElementById('empty-show');
+    return { text: document.getElementById('empty-text').textContent, show: !show.hidden, under: e.getBoundingClientRect().top >= document.getElementById('banner').getBoundingClientRect().bottom };
+  });
+  await p.goto(BASE + '?lat=36.5068&lon=-4.886&heading=70&pitch=0.3&nocam=1&autostart=1');
+  await ready();
+  const inland = await emptyNote();
+  check('an empty view says so and counts the places hills hide', !!inland && /^Nothing named in sight this way · \d+ hidden by hills$/.test(inland.text) && inland.show && inland.under, JSON.stringify(inland));
+  if (inland?.show) await p.click('#empty-show');
+  await p.waitForTimeout(400);
+  const shown = await st(() => ({
+    on: window.__binoculars.settings.showHidden,
+    saved: JSON.parse(localStorage.getItem('binoculars:settings:v1') || '{}').showHidden === true,
+    labels: document.querySelectorAll('.label.hidden-place:not([hidden])').length,
+    note: !document.getElementById('empty')?.hidden,
+  }));
+  check('Show turns hidden places on, and the note goes', shown.on && shown.saved && shown.labels > 0 && !shown.note, JSON.stringify(shown));
+  await st(() => {
+    window.__binoculars.settings.showHidden = false;
+    const s = JSON.parse(localStorage.getItem('binoculars:settings:v1') || '{}');
+    localStorage.setItem('binoculars:settings:v1', JSON.stringify({ ...s, showHidden: false }));
+  });
+  await st(() => (window.__binoculars.view.heading = 150));
+  await p.waitForTimeout(700);
+  const sea = await emptyNote();
+  check('over open sea it says so, with nothing hidden to offer', !!sea && sea.text === 'Nothing named in sight this way' && !sea.show, JSON.stringify(sea));
+  await p.screenshot({ path: `${OUT}/6-empty-sea.png` });
+
   // 7. Demo button from a cold start.
   await p.goto(BASE + '?nocam=1');
   await p.click('#demo-btn');
