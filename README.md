@@ -30,6 +30,9 @@ A static web app with no build step. On start it loads, for 150 km around you:
 - place names from OpenStreetMap through the public Overpass API, in four parts that stream in
   as they arrive (about three minutes when the servers are busy) and, once all four have loaded,
   are saved on the phone for 30 days and reused while you stay within 2 km of where they loaded;
+- towns and cities bundled with the app (`assets/places-major.json`, from Natural Earth's
+  populated places), shown in seconds while OpenStreetMap answers; rebuild it with
+  `node tools/build-places.mjs`;
 - country borders from Natural Earth (`assets/countries.json`).
 
 Compass: `webkitCompassHeading` on iPhone, absolute device orientation on Android.
@@ -50,7 +53,7 @@ node --test tests/*.test.mjs
 ```
 
 The browser checks (`tests/browser.e2e.cjs`, `tests/move.e2e.cjs`, `tests/demo.e2e.cjs`,
-`tests/height.e2e.cjs`) need Playwright; see the top of each file.
+`tests/height.e2e.cjs`, `tests/loading.e2e.cjs`) need Playwright; see the top of each file.
 
 Data © OpenStreetMap contributors; terrain from Mapzen / AWS Terrain Tiles; borders from Natural
 Earth.

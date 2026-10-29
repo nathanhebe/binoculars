@@ -1,4 +1,6 @@
-// Named places around the viewer from OpenStreetMap, via the Overpass API.
+// Named places around the viewer from OpenStreetMap, via the Overpass API, plus towns and
+// cities bundled with the app to show while those servers answer.
+import { distance } from './geo.mjs';
 
 const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -102,6 +104,47 @@ export function parse(json) {
     });
   }
   return out;
+}
+
+// Towns and cities from assets/places-major.json (built by tools/build-places.mjs) within range.
+// Never throws: without the file the app just waits for OpenStreetMap as before.
+let majorRows = null;
+export async function loadMajorPlaces(lat, lon, rangeKm) {
+  try {
+    majorRows ??= fetch(new URL('../assets/places-major.json', import.meta.url)).then((r) => {
+      if (!r.ok) throw new Error(`places-major.json: HTTP ${r.status}`);
+      return r.json();
+    });
+    const { rows } = await majorRows;
+    const out = [];
+    const cosLat = Math.cos((lat * Math.PI) / 180);
+    rows.forEach(([name, pLat, pLon, population, k], i) => {
+      if (Math.hypot((pLat - lat) * 111.32, (pLon - lon) * 111.32 * cosLat) > rangeKm) return;
+      out.push({ id: `ne${i}`, name, kind: k === 'c' ? 'city' : 'town', lat: pLat, lon: pLon, ele: null, height: null, population, wikipedia: null });
+    });
+    return out;
+  } catch (err) {
+    majorRows = null;
+    console.warn(err);
+    return [];
+  }
+}
+
+// OpenStreetMap ids start n, w or r and a digit, so this marks the bundled entries.
+export const isMajor = (p) => p.id.startsWith('ne');
+
+// Same name ignoring accents and case: Natural Earth writes "Tétouan", OpenStreetMap "Tetouan".
+const nameKey = (s) => s.normalize('NFD').replace(/[\p{M}\p{Cf}]/gu, '').toLowerCase();
+
+// The places plus each bundled town that OpenStreetMap has not also given (same name within 3 km).
+export function withMajor(items, major) {
+  const byName = new Map();
+  for (const p of items) {
+    const k = nameKey(p.name);
+    byName.set(k, [...(byName.get(k) ?? []), p]);
+  }
+  const extra = major.filter((m) => !(byName.get(nameKey(m.name)) ?? []).some((p) => distance(m.lat, m.lon, p.lat, p.lon) < 3000));
+  return [...items, ...extra];
 }
 
 function readCache(lat, lon) {

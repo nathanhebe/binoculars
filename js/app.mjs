@@ -1,6 +1,6 @@
 import { angleDiff, apparentAngle, compass, distance, horizonAlong, lineOfSight } from './geo.mjs';
 import { Terrain } from './terrain.mjs';
-import { KINDS, loadPlaces } from './places.mjs';
+import { KINDS, isMajor, loadMajorPlaces, loadPlaces, withMajor } from './places.mjs';
 import { countryAt, loadCountries } from './countries.mjs';
 import { axesFrom, cameraAxes, direction, headingOf, pitchOf, turn } from './orientation.mjs';
 
@@ -170,8 +170,11 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     world.lon = lon;
     loading('Loading terrain…');
     const gen = ++world.gen;
+    // Bundled towns and cities, so there are names in seconds whatever the server does.
+    const majorReady = loadMajorPlaces(lat, lon, RANGE_KM);
     // After a move, show the places already loaded from the new position until fresh ones arrive.
-    const prev = world.items ?? [];
+    // The bundled ones are for the old position; this load brings its own.
+    const prev = (world.items ?? []).filter((x) => !isMajor(x));
     world.places = [];
     world.items = prev;
     world.placesDone = false;
@@ -181,19 +184,29 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     // Each step runs after the last, and only while this is still the latest load.
     let chain = terrainReady;
     const then = (fn) => (chain = chain.then(() => gen === world.gen && fn()));
+    let major = [];
+    let osm = null;
+    const refresh = () =>
+      then(async () => {
+        // Keep the earlier places alongside each part until every part has loaded.
+        const items = osm?.items ?? [];
+        const ids = new Set(items.map((x) => x.id));
+        const complete = osm && osm.done === osm.total && !osm.failed;
+        const shown = withMajor(complete ? items : [...items, ...prev.filter((x) => !ids.has(x.id))], major);
+        world.items = shown;
+        await computePlaces(shown, gen);
+      });
     then(() => toast('Loading place names…', 0));
-    then(() => computePlaces(prev, gen));
+    then(async () => (major = await majorReady));
+    refresh();
     loadPlaces(lat, lon, RANGE_KM, {
       fresh,
       onPart: (items, done, total, failed) => {
         // A load for an earlier position can still be answering after a move.
         if (gen !== world.gen) return;
-        // Keep the earlier places alongside each part until every part has loaded.
-        const ids = new Set(items.map((x) => x.id));
-        const shown = done < total || failed ? [...items, ...prev.filter((x) => !ids.has(x.id))] : items;
-        world.items = shown;
-        then(async () => {
-          await computePlaces(shown, gen);
+        osm = { items, done, total, failed };
+        refresh();
+        then(() => {
           if (done < total) toast(`Loading place names ${done} / ${total}…`, 0);
           else if (failed) toast("Some place names didn't load — try Reload map data in settings.", 8000);
           else toast('Place names loaded.', 2000);
