@@ -3,6 +3,7 @@
 // Terrain comes from the live server. Run like browser.e2e.cjs:
 //   NODE_PATH=<dir with playwright installed>/node_modules node tests/speed.e2e.cjs [outdir]
 const { chromium } = require('playwright');
+const routeTiles = require('./tiles-route.cjs');
 const BASE = process.env.BASE_URL || 'http://localhost:8765/';
 const OUT = process.argv[2] || '.';
 const MARBELLA = '?lat=36.5068&lon=-4.886&heading=215&pitch=0.3&nocam=1&autostart=1';
@@ -45,6 +46,44 @@ const onScreen = (p) =>
       seen.peaks.length > 0 && seen.names.length > seen.peaks.length,
       `${((Date.now() - t0) / 1000).toFixed(1)} s, ${held.length} requests held, labels: ${seen.names.join(', ')}`);
     await p.screenshot({ path: `${OUT}/speed-held.png` });
+    for (const r of held.splice(0)) await r.abort().catch(() => {});
+    await ctx.close();
+  }
+
+  // 2. Fault: names beyond the bundled ones wait for Overpass, which takes minutes when busy.
+  // Edge: Overpass never answers; the map tiles answer, each after 400 ms, on a cold start.
+  {
+    const ctx = await b.newContext({ viewport: { width: 430, height: 860 } });
+    const p = await ctx.newPage();
+    p.on('pageerror', (e) => errors.push(String(e)));
+    const held = [];
+    await p.route(/\/interpreter/, (r) => held.push(r));
+    const asked = await routeTiles(p, { delay: 400 });
+    const t0 = Date.now();
+    await p.goto(BASE + MARBELLA);
+    let seen = [];
+    while (Date.now() - t0 < 5000 && !seen.length) {
+      await p.waitForTimeout(200);
+      seen = await p.evaluate(() => {
+        const tiles = new Set((window.__binoculars?.world.places ?? []).filter((x) => x.id.startsWith('t')).map((x) => x.name));
+        return [...document.querySelectorAll('.label:not([hidden]) .n, #target:not([hidden]) .t-name')]
+          .map((l) => l.textContent).filter((n) => tiles.has(n));
+      });
+    }
+    const known = await p.evaluate(() => (window.__binoculars?.world.places ?? []).filter((x) => x.id.startsWith('t')).length);
+    check('names from the map tiles labelled within 5 s while Overpass never answers', seen.length > 0,
+      `${((Date.now() - t0) / 1000).toFixed(1)} s, ${known} tile places, on screen: ${seen.join(', ')}`);
+    check('the tile under the viewer is asked for first', asked.find((a) => a.endsWith('.pbf')) === '/planet/20261025_080012_pt/8/124/100.pbf',
+      asked.slice(0, 4).join(' '));
+    await p.screenshot({ path: `${OUT}/speed-tiles.png` });
+    // Fault: the line keeps saying "Finding more names…" for minutes after the last tile, while
+    // Overpass (lighthouses, castles and the like) is still out.
+    const cleared = await p
+      .waitForFunction(() => document.getElementById('status').hidden, null, { timeout: 20000, polling: 200 })
+      .then(() => true, () => false);
+    const line = await p.evaluate(() => document.getElementById('status').textContent.replace(/\s+/g, ' ').trim());
+    check('the line goes once every map tile is in, with Overpass still out', cleared && held.length > 0,
+      `${asked.filter((a) => a.endsWith('.pbf')).length} tiles asked, ${held.length} Overpass requests held${cleared ? '' : `, line: ${line}`}`);
     for (const r of held.splice(0)) await r.abort().catch(() => {});
     await ctx.close();
   }

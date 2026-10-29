@@ -3,10 +3,12 @@
 // Place names are faked; terrain comes from the live server. Run like browser.e2e.cjs:
 //   NODE_PATH=<dir with playwright installed>/node_modules node tests/height.e2e.cjs
 const { chromium } = require('playwright');
+const routeTiles = require('./tiles-route.cjs');
 (async () => {
   const b = await chromium.launch({ channel: 'chromium' });
   const p = await b.newPage({ viewport: { width: 430, height: 860 } });
   await p.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: '{"elements":[]}' }));
+  await routeTiles(p, { empty: true });
   const base = process.env.BASE_URL || 'http://localhost:8765/';
   await p.goto(base + '?nocam=1');
   await p.evaluate(() => localStorage.clear());

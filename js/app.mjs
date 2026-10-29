@@ -1,6 +1,7 @@
 import { angleDiff, apparentAngle, compass, horizonAlong, lineOfSight } from './geo.mjs';
 import { Terrain } from './terrain.mjs';
 import { KINDS, dedupe, isMajor, loadMajorPlaces, loadPlaces, withMajor } from './places.mjs';
+import { loadTilePlaces } from './tiles.mjs';
 import { countryAt, loadCountries } from './countries.mjs';
 import { axesFrom, cameraAxes, direction, headingOf, pitchOf, turn } from './orientation.mjs';
 
@@ -219,13 +220,16 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     let chain = terrainReady;
     const then = (fn) => (chain = chain.then(() => gen === world.gen && fn()));
     let major = [];
-    let osm = null;
+    // Names come from map tiles (fast, and the progress shown); lighthouses, capes, castles,
+    // marinas and viewpoints, which the tiles lack, from Overpass without holding anything up.
+    let named = null;
+    let extras = null;
     const refresh = () =>
       then(async () => {
-        // Keep the earlier places alongside each part until every part has loaded.
-        const items = osm?.items ?? [];
+        // Keep the earlier places alongside the new ones until both sources have loaded.
+        const items = [...(named?.items ?? []), ...(extras?.items ?? [])];
         const ids = new Set(items.map((x) => x.id));
-        const complete = osm && osm.done === osm.total && !osm.failed;
+        const complete = named?.settled && !named.failed && extras?.settled && !extras.failed;
         const shown = withMajor(complete ? items : [...items, ...prev.filter((x) => !ids.has(x.id))], major);
         world.items = shown;
         await computePlaces(shown, gen);
@@ -233,27 +237,45 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     then(() => placeStatus({ done: 0, total: 0 }));
     then(async () => (major = await majorReady));
     refresh();
-    let gaveUp = false;
-    loadPlaces(lat, lon, RANGE_KM, {
-      fresh,
+    const tilesDone = loadTilePlaces(lat, lon, RANGE_KM, {
       onPart: (items, done, total, failed) => {
         // A load for an earlier position can still be answering after a move.
         if (gen !== world.gen) return;
-        osm = { items, done, total, failed };
+        named = { items, failed };
         refresh();
         if (done < total) then(() => placeStatus({ done, total }));
       },
-    })
-      .catch((err) => {
+    }).then(
+      (items) => (named = { items, failed: named?.failed ?? 0, settled: true }),
+      (err) => {
         console.warn(err);
-        gaveUp = true;
-      })
-      .finally(() =>
-        then(() => {
-          world.placesDone = true;
-          placeStatus(gaveUp || osm?.failed ? 'failed' : null);
-        })
-      );
+        named = { items: [], failed: true, settled: true };
+      }
+    );
+    // The line tracks the map tiles only: once they are in it goes, whatever Overpass is doing.
+    tilesDone.then(() => gen === world.gen && then(() => placeStatus(named.failed ? 'failed' : null)));
+    const extrasDone = loadPlaces(lat, lon, RANGE_KM, {
+      fresh,
+      onPart: (items, done, total, failed) => {
+        if (gen !== world.gen) return;
+        extras = { items, failed };
+        refresh();
+      },
+    }).then(
+      (items) => (extras = { items, failed: extras?.failed ?? 0, settled: true }),
+      (err) => {
+        console.warn(err); // Overpass is often busy; the tiles have the names that matter
+        extras = { items: [], failed: true, settled: true };
+      }
+    );
+    Promise.all([tilesDone, extrasDone]).then(() => {
+      if (gen !== world.gen) return;
+      refresh();
+      then(() => {
+        world.placesDone = true;
+        placeStatus(named.failed ? 'failed' : null);
+      });
+    });
     const [, tiles] = await Promise.all([
       loadCountries(),
       terrain.load(lat, lon, (n, total) => loading(`Loading terrain ${n} / ${total}…`)),

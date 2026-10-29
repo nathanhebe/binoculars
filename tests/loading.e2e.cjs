@@ -5,6 +5,7 @@
 // Terrain comes from the live server. Run like browser.e2e.cjs:
 //   NODE_PATH=<dir with playwright installed>/node_modules node tests/loading.e2e.cjs [outdir]
 const { chromium } = require('playwright');
+const routeTiles = require('./tiles-route.cjs');
 const BASE = process.env.BASE_URL || 'http://localhost:8765/';
 const OUT = process.argv[2] || '.';
 const results = [];
@@ -20,9 +21,9 @@ const check = (name, ok, detail = '') => {
   const errors = [];
   p.on('pageerror', (e) => errors.push(String(e)));
 
-  // 1. Overpass never answers.
+  // 1. Neither the map tiles nor Overpass ever answer.
   const held = [];
-  await p.route(/\/interpreter/, (r) => held.push(r));
+  await p.route(/\/interpreter|tiles\.openfreemap\.org/, (r) => held.push(r));
   await p.goto(BASE + '?nocam=1');
   await p.evaluate(() => localStorage.clear());
   const t0 = Date.now();
@@ -44,14 +45,16 @@ const check = (name, ok, detail = '') => {
   check('a slim line says more names are on the way', /^Finding more names…/.test(pill), pill);
   await p.screenshot({ path: `${OUT}/loading-held.png` });
   for (const r of held.splice(0)) await r.abort().catch(() => {});
-  await p.unroute(/\/interpreter/);
+  await p.unroute(/\/interpreter|tiles\.openfreemap\.org/);
 
   // 2. Fault: when every server fails, a message says so and then goes, with no way to try
   // again short of finding Reload in settings. Here every server answers 503.
   const p2 = await ctx.newPage();
   p2.on('pageerror', (e) => errors.push(String(e)));
-  let asked = 0;
-  await p2.route(/\/interpreter/, (r) => { asked++; r.fulfill({ status: 503, body: 'busy' }); });
+  let overpass = 0;
+  await p2.route(/\/interpreter/, (r) => { overpass++; r.fulfill({ status: 503, body: 'busy' }); });
+  const tiles = await routeTiles(p2, { status: 503 });
+  const asked = () => overpass + tiles.length;
   await p2.goto(BASE + '?nocam=1');
   await p2.evaluate(() => localStorage.removeItem('binoculars:places:v1'));
   await p2.goto(BASE + '?lat=36.5068&lon=-4.886&heading=215&pitch=0.3&nocam=1&autostart=1');
@@ -62,11 +65,11 @@ const check = (name, ok, detail = '') => {
     await p2.screenshot({ path: `${OUT}/loading-failed.png` });
     await p2.waitForTimeout(6000);
     const visibleLater = await p2.isVisible('#status-retry');
-    const before = asked;
+    const before = asked();
     await p2.click('#status-retry');
     const t1 = Date.now();
-    while (asked === before && Date.now() - t1 < 10000) await p2.waitForTimeout(100);
-    check('Retry stays up and asks the servers again', visibleLater && asked > before, `${before} requests before, ${asked} after`);
+    while (asked() === before && Date.now() - t1 < 10000) await p2.waitForTimeout(100);
+    check('Retry stays up and asks the servers again', visibleLater && asked() > before, `${before} requests before, ${asked()} after`);
     // Fault: the lasting line sits in front of open sheets and covers their rows on a short
     // phone. Edge: the line is up when the settings sheet opens, and comes back when it closes.
     await p2.waitForSelector('#status-retry', { state: 'visible', timeout: 90000 }).catch(() => {});

@@ -5,6 +5,7 @@
 // Terrain comes from the live server. Run like browser.e2e.cjs:
 //   NODE_PATH=<dir with playwright installed>/node_modules node tests/camera.e2e.cjs [outdir]
 const { chromium } = require('playwright');
+const routeTiles = require('./tiles-route.cjs');
 const BASE = process.env.BASE_URL || 'http://localhost:8765/';
 const OUT = process.argv[2] || '.';
 const results = [];
@@ -30,6 +31,7 @@ const check = (name, ok, detail = '') => {
   });
   const p = await ctx.newPage();
   await p.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: '{"elements":[]}' }));
+  await routeTiles(p, { empty: true });
   await p.goto(BASE);
   await p.click('#demo-btn');
   await p.waitForFunction(() => !document.getElementById('hud').hidden, null, { timeout: 300000, polling: 300 });

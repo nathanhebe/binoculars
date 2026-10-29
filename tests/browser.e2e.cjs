@@ -4,6 +4,7 @@
 //   python3 -m http.server 8765 &
 //   NODE_PATH=<dir with playwright installed>/node_modules node tests/browser.e2e.cjs <screenshot dir>
 const { chromium } = require('playwright');
+const routeTiles = require('./tiles-route.cjs');
 const FIXTURE = require('fs').readFileSync(require('path').join(__dirname, 'fixtures/marbella-overpass.json'), 'utf8');
 const FIXTURE_COUNT = JSON.parse(FIXTURE).elements.length;
 const OUT = process.argv[2];
@@ -15,6 +16,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   const b = await chromium.launch({ channel: 'chromium' });
   const ctx = await b.newContext({ viewport: { width: 430, height: 860 }, deviceScaleFactor: 2, hasTouch: true });
   await ctx.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: FIXTURE }));
+  await routeTiles(ctx, { empty: true }); // the place names come from the fixture above
   const errors = [];
   const watch = (p) => {
     p.on('pageerror', (e) => errors.push(String(e)));

@@ -6,6 +6,7 @@
 // Place names are faked; terrain comes from the live server. Run like browser.e2e.cjs:
 //   NODE_PATH=<dir with playwright installed>/node_modules node tests/move.e2e.cjs
 const { chromium } = require('playwright');
+const routeTiles = require('./tiles-route.cjs');
 const A = { latitude: 36.5068, longitude: -4.886 };
 const B = { latitude: 36.55, longitude: -4.886 }; // ~4.8 km north
 const C = { latitude: 36.5932, longitude: -4.886 }; // ~4.8 km further
@@ -18,6 +19,7 @@ const C = { latitude: 36.5932, longitude: -4.886 }; // ~4.8 km further
   const heldC = [];
   const reply = (r, name, lat = 36.45) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ elements: [
     { type: 'node', id: Math.floor(Math.random() * 1e9), lat, lon: -4.95, tags: { place: 'town', name } }] }) });
+  await routeTiles(p, { empty: true }); // the place names come from the replies below
   await p.route(/\/interpreter/, (r) => {
     if (phase === 'A') return held.push(r);
     if (phase === 'B') return reply(r, 'Newtown');

@@ -32,11 +32,14 @@ A static web app with no build step. On start it loads, for 150 km around you:
 
 - elevation tiles (Mapzen Terrarium on AWS) to trace the skyline and test each place's line of
   sight, with earth curvature and standard refraction;
-- place names from OpenStreetMap through the public Overpass API, in four parts that stream in
-  as they arrive (about three minutes when the servers are busy) and, once all four have loaded,
-  are saved on the phone for 30 days and reused while you stay within 2 km of where they loaded;
+- place names (towns, villages, peaks, airports) from OpenStreetMap through OpenFreeMap's
+  vector map tiles: 25 or so tiles, the one under you first, four at a time, each shown as it
+  arrives, with "Finding more names… n/N" until they are all in (`js/tiles.mjs`);
+- lighthouses, capes, castles, marinas and viewpoints, which the map tiles leave out, from the
+  public Overpass API in two parts; they appear when it answers and are saved on the phone for
+  30 days while you stay within 2 km, and nothing waits for them if it is busy;
 - towns and cities bundled with the app (`assets/places-major.json`, from Natural Earth's
-  populated places), shown in seconds while OpenStreetMap answers; rebuild it with
+  populated places), shown in seconds while the map tiles load; rebuild it with
   `node tools/build-places.mjs`;
 - about 7,800 well-known mountains bundled the same way (`assets/peaks-major.json`, from
   Wikidata: the best known in each half-degree square, judged by how many Wikipedias have an
@@ -64,5 +67,6 @@ node --test tests/*.test.mjs
 The browser checks (`tests/browser.e2e.cjs`, `tests/move.e2e.cjs`, `tests/demo.e2e.cjs`,
 `tests/height.e2e.cjs`, `tests/loading.e2e.cjs`, `tests/speed.e2e.cjs`) need Playwright; see the top of each file.
 
-Data © OpenStreetMap contributors; terrain from Mapzen / AWS Terrain Tiles; borders from Natural
+Data © OpenStreetMap contributors; map tiles by OpenFreeMap © OpenMapTiles; terrain from Mapzen /
+AWS Terrain Tiles; borders from Natural
 Earth; mountain names from Wikidata (CC0).

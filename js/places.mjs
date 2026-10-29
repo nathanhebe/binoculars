@@ -34,28 +34,17 @@ function bbox(lat, lon, km) {
   return `${(lat - dLat).toFixed(4)},${(lon - dLon).toFixed(4)},${(lat + dLat).toFixed(4)},${(lon + dLon).toFixed(4)}`;
 }
 
-// The public servers are slow when busy and time out on one big query, so ask in small parts,
-// most useful first, and show each part as it arrives.
+// Only what the map tiles (tiles.mjs) lack: towns, villages, peaks, islands and airports come
+// from there. The public servers are slow when busy and time out on one big query, so ask in
+// two small parts.
 function queries(lat, lon, rangeKm) {
   const far = bbox(lat, lon, rangeKm);
-  const mid = bbox(lat, lon, Math.min(rangeKm, 60));
   const near = bbox(lat, lon, Math.min(rangeKm, 40));
   const close = bbox(lat, lon, Math.min(rangeKm, 12));
   return [
-    // Asked first and kept small: towns, cities and nearby peaks with a height are what people
-    // point at.
-    `node["place"~"^(city|town)$"]["name"](${far});
-  node["natural"~"^(peak|volcano)$"]["name"]["ele"](${near});`,
-    // Far peaks only when they have a height: untagged ones are minor and there are thousands.
-    `node["natural"~"^(peak|volcano)$"]["name"]["ele"](${far});
-  node["natural"~"^(peak|volcano)$"]["name"](${near});
-  nwr["place"~"^(island|islet)$"]["name"](${far});
-  node["natural"="cape"]["name"](${far});`,
     `nwr["man_made"="lighthouse"](${far});
-  nwr["aeroway"="aerodrome"]["name"]["iata"](${far});
-  nwr["historic"~"^(castle|fort|tower)$"]["name"](${near});`,
-    `node["place"="village"]["name"](${mid});
-  node["place"="hamlet"]["name"](${close});
+  node["natural"="cape"]["name"](${far});`,
+    `nwr["historic"~"^(castle|fort|tower)$"]["name"](${near});
   nwr["leisure"="marina"]["name"](${near});
   nwr["tourism"="viewpoint"]["name"](${close});`,
   ].map((q) => `[out:json][timeout:${PART_TIMEOUT}];\n(\n  ${q}\n);\nout center tags;`);
@@ -153,15 +142,26 @@ export const isMajor = (p) => p.id.startsWith('ne');
 // Same name ignoring accents and case: Natural Earth writes "Tétouan", OpenStreetMap "Tetouan".
 const nameKey = (s) => s.normalize('NFD').replace(/[\p{M}\p{Cf}]/gu, '').toLowerCase();
 
-// The places plus each bundled town that OpenStreetMap has not also given (same name within 3 km).
+// The places plus each bundled one that OpenStreetMap has not also given (same name within
+// 3 km; a place's other spellings in `names` count). A town from the map tiles has no
+// population, so it takes its bundled twin's, which ranks it as before.
 export function withMajor(items, major) {
   const byName = new Map();
-  for (const p of items) {
-    const k = nameKey(p.name);
-    byName.set(k, [...(byName.get(k) ?? []), p]);
+  for (const p of items)
+    for (const k of new Set([p.name, ...(p.names ?? [])].map(nameKey))) byName.set(k, [...(byName.get(k) ?? []), p]);
+  const extra = [];
+  const population = new Map();
+  // Wikidata and OpenStreetMap often spell a mountain differently ("Jebel Moussa", "Jebel Musa"),
+  // so a bundled peak also gives way to any mapped peak within 1.5 km.
+  const peaks = items.filter((p) => p.kind === 'peak');
+  for (const m of major) {
+    const twin =
+      (byName.get(nameKey(m.name)) ?? []).find((p) => distance(m.lat, m.lon, p.lat, p.lon) < 3000) ??
+      (m.kind === 'peak' ? peaks.find((p) => distance(m.lat, m.lon, p.lat, p.lon) < 1500) : undefined);
+    if (!twin) extra.push(m);
+    else if (m.population && !twin.population) population.set(twin, m.population);
   }
-  const extra = major.filter((m) => !(byName.get(nameKey(m.name)) ?? []).some((p) => distance(m.lat, m.lon, p.lat, p.lon) < 3000));
-  return [...items, ...extra];
+  return [...items.map((p) => (population.has(p) ? { ...p, population: population.get(p) } : p)), ...extra];
 }
 
 // "Jbel Musa", "Jebel Musa" and "Musa" are one mountain: drop a leading word for mountain.

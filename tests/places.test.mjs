@@ -88,9 +88,9 @@ test('a server that never answers is given up on after 25 s for the next one', a
   assert.ok(asked.every((a) => a.body.includes('[timeout:25]')), 'server told to give up after 25 s too');
 });
 
-// Fault: the first part asked for also carries islands and capes, so on a busy server the
-// towns and peaks people point at wait behind them. Edge: the very first request.
-test('the first part asked for is the small one: towns, cities and nearby peaks', async (t) => {
+// Fault: Overpass is still asked for towns, villages and peaks, which the map tiles already
+// give in seconds, so a busy server spends minutes on them. Edge: every part asked for.
+test('Overpass is asked only for what the map tiles lack', async (t) => {
   const asked = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, { body }) => {
@@ -99,7 +99,26 @@ test('the first part asked for is the small one: towns, cities and nearby peaks'
   };
   t.after(() => (globalThis.fetch = realFetch));
   await loadPlaces(36.5, -4.9, 150, { fresh: true });
-  assert.match(asked[0], /"place"~"\^\(city\|town\)\$"/);
-  assert.match(asked[0], /"natural"~"\^\(peak\|volcano\)\$"/);
-  assert.doesNotMatch(asked[0], /island|cape|village|lighthouse/);
+  const all = asked.join('\n');
+  assert.doesNotMatch(all, /"place"|"natural"~|aerodrome/);
+  for (const what of ['lighthouse', 'cape', 'castle', 'marina', 'viewpoint']) assert.match(all, new RegExp(what));
+});
+
+// Fault: a town from the map tiles is shown twice when its English name differs from the
+// bundled one ("Málaga City", "Málaga"), and it ranks lower for having no population.
+test('a bundled town gives way to the same town under another spelling, and lends its population', () => {
+  const tiles = [{ id: 't1', name: 'Málaga City', names: ['Málaga'], lat: 36.7213, lon: -4.4214, population: null }];
+  const major = [{ id: 'ne1', name: 'Malaga', lat: 36.7196, lon: -4.42, population: 574654 }];
+  const out = withMajor(tiles, major);
+  assert.deepEqual(out.map((p) => [p.id, p.population]), [['t1', 574654]]);
+});
+
+// Fault: one mountain labelled twice, as Wikidata and OpenStreetMap spell it ("Jebel Moussa",
+// "Jebel Musa"). Edges: a mapped peak 1.4 km away takes over; one 1.6 km away does not, and
+// neither does a town close by.
+test('a bundled peak gives way to a mapped peak within 1.5 km whatever its spelling', () => {
+  const at = (id, name, kind, km) => ({ id, name, kind, lat: 35.9 + km / 111.2, lon: -5.4 });
+  const mapped = [at('t1', 'Jebel Musa', 'peak', 0), at('t2', 'Pico Mijas', 'peak', 10), at('t3', 'Benzú', 'village', 20)];
+  const major = [at('nep1', 'Jebel Moussa', 'peak', 0.03), at('nep2', 'Sierra de Mijas', 'peak', 11.6), at('nep3', 'Bullones', 'peak', 20.1), at('nep4', 'Mijas', 'peak', 8.6)];
+  assert.deepEqual(withMajor(mapped, major).map((p) => p.id), ['t1', 't2', 't3', 'nep2', 'nep3']);
 });
