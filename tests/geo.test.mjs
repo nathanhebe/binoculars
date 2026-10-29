@@ -66,8 +66,8 @@ test('a summit is not hidden by the terrain data right beside it', () => {
 test('skyline over open sea sits just below level, at the geometric horizon', () => {
   const sea = () => 0;
   const h = horizonAlong(sea, ...MARBELLA, 2, 180, 150000);
-  // With refraction the dip from 2 m is about 0.043 degrees.
-  assert.ok(h.angle < 0 && h.angle > -0.1, `angle ${h.angle}`);
+  // With refraction the dip from 2 m is about 0.043 degrees; on a flat earth it would be ~0.001.
+  assert.ok(h.angle < -0.03 && h.angle > -0.06, `angle ${h.angle}`);
   assert.equal(h.landD, 0);
   assert.ok(Math.abs(apparentAngle(2, 0, 100000)) > Math.abs(h.angle) - 1e-9);
 });
