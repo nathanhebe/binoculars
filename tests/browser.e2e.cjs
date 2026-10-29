@@ -165,6 +165,20 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   // 5. Settings.
   await p.click('#settings-btn');
   check('settings open', await st(() => !document.getElementById('settings').hidden));
+  // Fault: settings were named for how the app works ("computed skyline", "field of view",
+  // "alignment"). They say what each does, most useful first.
+  const settingsOrder = await st(() => [...document.querySelectorAll('#settings input, #settings button:not(.close)')].map((el) => {
+    const owner = el.closest('label') ?? el;
+    const text = [...owner.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').replace(/\s+/g, ' ').trim();
+    return `${el.id}: ${text}`;
+  }));
+  check('settings are in plain words, most useful first', JSON.stringify(settingsOrder.slice(0, 5)) === JSON.stringify([
+    'show-hidden: Also show places hidden behind hills',
+    'show-skyline: Show dotted skyline',
+    'fov: Label spread (if labels drift as you turn)',
+    'reset-align: Undo label fix',
+    'reload-data: Reload place names',
+  ]) && settingsOrder.length === 6, JSON.stringify(settingsOrder));
   const settingsLook = await sheetLook('settings');
   check('the settings sheet is solid and the controls hide', !settingsLook.hud && /^rgb\(/.test(settingsLook.bg), JSON.stringify(settingsLook));
   await p.screenshot({ path: `${OUT}/4-settings.png` });
@@ -220,7 +234,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await p.$eval('#fov', (el) => { el.value = 80; el.dispatchEvent(new Event('input')); });
   check('field of view setting applies', await st(() => window.__binoculars.settings.fov === 80));
   await p.click('#reset-align');
-  check('reset alignment confirms', (await p.textContent('#toast')) === 'Alignment reset.');
+  check('undoing the label fix confirms', (await p.textContent('#toast')) === 'Label fix undone.', await p.textContent('#toast'));
   // Fault: messages sit over the country banner at the top, and under any open sheet.
   const placed = await st(() => {
     const t = document.getElementById('toast').getBoundingClientRect();
@@ -302,6 +316,9 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
 
   // 7. Demo button from a cold start.
   await p.goto(BASE + '?nocam=1');
+  // Fault: the opening words explained the app instead of inviting you to use it.
+  const intro = await st(() => [document.querySelector('#start p')?.textContent.replace(/\s+/g, ' ').trim(), document.getElementById('demo-btn')?.textContent]);
+  check('the start screen invites you in, and the demo says where it goes', intro[0] === "Point your phone at the view. See what's out there — and what's hidden behind the hills." && intro[1] === 'Try the demo: Spain → Africa', JSON.stringify(intro));
   await p.click('#demo-btn');
   await ready();
   ls = await labels();

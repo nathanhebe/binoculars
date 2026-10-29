@@ -13,7 +13,7 @@ full screen.
   the view.
 - The banner at the top names the continent and country you're pointing at, and a country hidden
   beyond the horizon. Labels show places you can actually see; things hidden by hills or the curve
-  of the earth are left out (Settings → *Show hidden places* greys them in). When nothing is
+  of the earth are left out (Settings → *Also show places hidden behind hills* greys them in). When nothing is
   labelled the way you face, a note under the banner says so and how many places the hills hide,
   with **Show** to grey them in.
 - Point the centre ring at a place and it locks on, with the place named in a card underneath.
@@ -23,7 +23,8 @@ full screen.
 - If labels sit a little off the real thing, tap **Align**, drag until the dotted skyline lies on
   the real one, then **Done**. The correction is remembered.
 - On a balcony or tower, raise *Your height above the ground* in Settings.
-- No phone? **Try it from Marbella** shows the demo; drag or use the arrow keys to look around.
+- No phone? **Try the demo: Spain → Africa** looks from Marbella across to Morocco; drag or use
+  the arrow keys to look around.
 
 ## How it works
 

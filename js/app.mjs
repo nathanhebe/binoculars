@@ -902,14 +902,14 @@ $('reset-align').addEventListener('click', () => {
   settings.calibHeading = 0;
   settings.calibPitch = 0;
   saveSettings();
-  toast('Alignment reset.');
+  toast('Label fix undone.');
 });
 $('reload-data').addEventListener('click', async () => {
   if (world.lat == null || world.busy) return;
   show('settings', false);
-  toast('Reloading map data…', 0);
+  toast('Reloading place names…', 0);
   await loadWorld(world.lat, world.lon, { fresh: true });
-  toast('Map data reloaded.');
+  toast('Place names reloaded.');
 });
 
 $('status-retry').addEventListener('click', async () => {

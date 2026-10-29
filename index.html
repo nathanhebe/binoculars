@@ -52,11 +52,10 @@
   <section id="start" class="sheet-full">
     <img src="icons/icon.svg" alt="" width="84" height="84">
     <h1>Binoculars</h1>
-    <p>Point your phone at a view. Binoculars labels the towns, peaks, landmarks and countries
-      you can actually see — allowing for hills and the curve of the earth.</p>
+    <p>Point your phone at the view. See what's out there — and what's hidden behind the hills.</p>
     <p id="start-error" role="alert" hidden>Binoculars needs your location to know what's around you. Turn on Location for this site, then tap Start — or try the demo.</p>
     <button id="start-btn" class="primary">Start</button>
-    <button id="demo-btn" class="secondary">Try it from Marbella (looking towards Africa)</button>
+    <button id="demo-btn" class="secondary">Try the demo: Spain → Africa</button>
     <p class="small">Needs your camera, compass and location. Nothing leaves your phone except
       map requests to OpenStreetMap and AWS terrain tiles.</p>
   </section>
@@ -82,18 +81,17 @@
   <section id="settings" class="sheet" hidden>
     <button class="close" data-close="settings">✕</button>
     <h2>Settings</h2>
+    <label class="row"><input id="show-hidden" type="checkbox"> Also show places hidden behind hills</label>
+    <label class="row"><input id="show-skyline" type="checkbox"> Show dotted skyline</label>
+    <label>Label spread (if labels drift as you turn) <span id="fov-val"></span>
+      <input id="fov" type="range" min="40" max="90" step="1"></label>
+    <div class="buttons">
+      <button id="reset-align" class="secondary">Undo label fix</button>
+      <button id="reload-data" class="secondary">Reload place names</button>
+    </div>
     <label>Your height above the ground <span id="hag-val"></span>
       <input id="hag" type="range" min="1" max="300" step="1"></label>
     <p class="muted small">Raise this on a balcony, tower or rooftop. You are at <span id="eye-val"></span> above sea level.</p>
-    <label>Camera field of view <span id="fov-val"></span>
-      <input id="fov" type="range" min="40" max="90" step="1"></label>
-    <p class="muted small">If labels drift apart from things as you turn, adjust this.</p>
-    <label class="row"><input id="show-hidden" type="checkbox"> Show hidden places (greyed out)</label>
-    <label class="row"><input id="show-skyline" type="checkbox"> Show computed skyline</label>
-    <div class="buttons">
-      <button id="reset-align" class="secondary">Reset alignment</button>
-      <button id="reload-data" class="secondary">Reload map data</button>
-    </div>
     <p class="muted small">Places © OpenStreetMap contributors. Terrain: Mapzen / AWS Terrain Tiles.
       Borders: Natural Earth.</p>
   </section>
