@@ -180,9 +180,9 @@ export function placesOf(features) {
   return out;
 }
 
-// Small places only nearby, as Overpass was asked: villages within 60 km, hamlets within 12 km,
-// and far peaks only when they have a height.
-const REACH = { village: 60, hamlet: 12 };
+// Hamlets only within 30 km, and far peaks only when they have a height. Villages count at any
+// distance: zoomed in across the sea, the villages of the far shore are what there is to name.
+const REACH = { hamlet: 30 };
 function near(p, lat, lon, rangeKm) {
   const km = distance(lat, lon, p.lat, p.lon) / 1000;
   if (p.kind === 'peak' && p.ele == null) return km <= 40;
@@ -216,6 +216,36 @@ function tilesAround(lat, lon, km, z) {
 export function tilePlan(lat, lon, rangeKm) {
   const detail = [...tilesAround(lat, lon, Math.min(rangeKm, 60), 9), ...tilesAround(lat, lon, Math.min(rangeKm, 12), 11)];
   return [...tilesAround(lat, lon, rangeKm, 8), ...detail.sort((a, b) => a.d - b.d)];
+}
+
+// Zoomed in, finer tiles name smaller places, so the tiles at FINER_Z[step] inside the wedge
+// heading ± halfDeg out to rangeKm are asked for, nearest first; d is the distance in km at
+// which the wedge first enters each. None at 1×. They stop at zoom 12: hamlets are in the tiles
+// from zoom 11, and zoom 14, the heaviest, is fetched only for the chips (pois.mjs).
+const FINER_Z = { 2: 10, 4: 11, 8: 12 };
+const tileXY = (lat, lon, n) => ({
+  x: Math.floor(((lon + 180) / 360) * n),
+  y: Math.floor(((1 - Math.asinh(Math.tan((lat * Math.PI) / 180)) / Math.PI) / 2) * n),
+});
+export function finerPlan(lat, lon, heading, halfDeg, step, rangeKm) {
+  const z = FINER_Z[step];
+  if (!z) return [];
+  const n = 2 ** z;
+  const tileKm = (40075 * Math.cos((lat * Math.PI) / 180)) / n;
+  const stepKm = tileKm / 4;
+  const cos = Math.cos((lat * Math.PI) / 180);
+  const seen = new Map();
+  for (let d = stepKm; d <= rangeKm; d += stepKm) {
+    // Bearing steps no wider than a quarter tile at this distance, so no tile is stepped over.
+    const da = Math.min(halfDeg, ((stepKm / d) * 180) / Math.PI);
+    for (let a = -halfDeg; a <= halfDeg + 1e-9; a += da) {
+      const b = ((heading + a) * Math.PI) / 180;
+      const t = tileXY(lat + (d * Math.cos(b)) / 111.32, lon + (d * Math.sin(b)) / (111.32 * cos), n);
+      const key = `${z}/${t.x}/${t.y}`;
+      if (!seen.has(key)) seen.set(key, { z, x: t.x, y: t.y, d });
+    }
+  }
+  return [...seen.values()].sort((p, q) => p.d - q.d);
 }
 
 // ---------- fetching ----------
@@ -299,6 +329,9 @@ export async function loadTile(t, what, layers, convert) {
 }
 
 const fetchTile = (t) => loadTile(t, 'places', LAYERS, placesOf);
+
+// One finer tile's places (see finerPlan), kept to the same reach as the rest.
+export const loadFinerTile = async (t, lat, lon, rangeKm) => (await fetchTile(t)).filter((p) => near(p, lat, lon, rangeKm));
 
 // Resolves with every place found; calls onPart(placesSoFar, tilesDone, tilesTotal, tilesFailed)
 // as each tile lands. Throws only if no tile loaded.

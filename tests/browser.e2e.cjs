@@ -55,13 +55,18 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   check('reticle card names Jebel Musa, Rock of Gibraltar labelled', aimed === 'Jebel Musa' && !ls.includes('Jebel Musa') && ls.includes('Rock of Gibraltar'), `card ${aimed} :: ${ls.join(', ')}`);
   check('no duplicate labels', new Set(ls).size === ls.length, ls.join(', '));
   // Fault: labels are heavy dark boxes, all one size, that pop on and off. Each label must be
-  // bare text on a halo, sized and dimmed by distance (under 20 km, 20–80 km, beyond), fading.
+  // bare text on a halo, sized and dimmed by distance (under 20 km, 20–80 km, beyond), fading;
+  // a place that matters more (score 75 and up: cities, towns of some size) a size up, a small
+  // one (under 35: villages, hamlets) a size down, a point of interest by distance alone.
   const labelLook = () => st(() => [...document.querySelectorAll('.label:not([hidden])')].map((l) => {
     const place = window.__binoculars.world.places.find((x) => x.name === l.querySelector('.n').textContent);
     const cs = getComputedStyle(l);
     const n = getComputedStyle(l.querySelector('.n'));
     const m = getComputedStyle(l.querySelector('.m'));
-    const want = place.d < 20000 ? [16, 1] : place.d < 80000 ? [14, 0.9] : [12, 0.75];
+    const sizes = [[16, 1], [14, 0.9], [12, 0.75]];
+    const by = (place.d < 20000 ? 0 : place.d < 80000 ? 1 : 2) +
+      (['food', 'shops', 'travel', 'sights'].includes(place.kind) ? 0 : place.score >= 75 ? -1 : place.score < 35 ? 1 : 0);
+    const want = [...sizes[Math.min(2, Math.max(0, by))]];
     if (l.classList.contains('hidden-place')) want[1] *= 0.6;
     const got = [parseFloat(n.fontSize), parseFloat(cs.opacity)];
     const ok = cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.textShadow !== 'none' && got[0] === want[0] &&

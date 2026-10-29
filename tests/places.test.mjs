@@ -122,3 +122,16 @@ test('a bundled peak gives way to a mapped peak within 1.5 km whatever its spell
   const major = [at('nep1', 'Jebel Moussa', 'peak', 0.03), at('nep2', 'Sierra de Mijas', 'peak', 11.6), at('nep3', 'Bullones', 'peak', 20.1), at('nep4', 'Mijas', 'peak', 8.6)];
   assert.deepEqual(withMajor(mapped, major).map((p) => p.id), ['t1', 't2', 't3', 'nep2', 'nep3']);
 });
+
+// Fault: zooming in names no more than 1× does, or 1× is crowded with villages and hamlets, or
+// a pinch a little short of a step loses that step's detail. Edges: 1.95× and 0.5×.
+test('the least score a place needs to be labelled falls as you zoom, and the label cap rises', async () => {
+  const P = await import('../js/places.mjs');
+  assert.equal(typeof P.detailFor, 'function', 'there is one rule for detail by zoom');
+  const at = (z) => { const d = P.detailFor(z); return [d.minScore, d.cap]; };
+  assert.deepEqual([1, 2, 4, 8].map(at), [[45, 12], [35, 14], [22, 16], [0, 16]]);
+  assert.deepEqual(at(1.95), at(2), 'a pinch just short of 2× counts as 2×');
+  assert.deepEqual(at(1.9), at(1));
+  assert.deepEqual(at(0.5), at(1));
+  assert.deepEqual(at(12), at(8));
+});

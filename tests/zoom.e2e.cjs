@@ -21,7 +21,7 @@ const check = (name, ok, detail = '') => {
 async function open(b, viewport, heading) {
   const ctx = await b.newContext({ viewport, deviceScaleFactor: 2 });
   await ctx.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: PLACES }));
-  await routeTiles(ctx);
+  const asked = await routeTiles(ctx);
   const p = await ctx.newPage();
   const errors = [];
   p.on('pageerror', (e) => errors.push(String(e)));
@@ -29,8 +29,15 @@ async function open(b, viewport, heading) {
   await p.waitForFunction(() => !document.getElementById('hud').hidden, null, { timeout: 240000 });
   await p.waitForFunction(() => window.__binoculars.world.placesDone, null, { timeout: 240000, polling: 500 });
   await p.waitForTimeout(800);
-  return { ctx, p, errors };
+  return { ctx, p, errors, asked };
 }
+// The detail each zoom shows: the least score a place needs for a label, and at most how many
+// labels (js/places.mjs DETAIL); the map tile zoom asked for, zoomed in, to find smaller places
+// (js/tiles.mjs FINER_Z).
+const DETAIL = { 1: [45, 12], 2: [35, 14], 4: [22, 16], 8: [0, 16] };
+const FINER_Z = { 2: 10, 4: 11, 8: 12 };
+const POI = ['food', 'shops', 'travel', 'sights'];
+const tileZ = (path) => Number((/\/(\d+)\/\d+\/\d+\.pbf$/.exec(path) || [])[1]);
 const look = (p, heading, zoom) =>
   p.evaluate(([h, z]) => {
     const { view } = window.__binoculars;
@@ -46,6 +53,7 @@ const labels = (p) =>
       country: el._p?.country ?? null,
       visible: !!el._p?.visible,
       blockedBy: el._p?.blockedBy ?? null,
+      score: el._p?.score ?? null,
     }))
   );
 const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.kind}${l.blockedBy ? ' ' + l.blockedBy : ''}] ${l.meta}`).join(' | ')}`);
@@ -56,19 +64,52 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
 
   // 1. Facing Morocco across the Strait, the setting for hidden places off.
   {
-    const { ctx, p, errors: e } = await open(b, { width: 375, height: 667 }, 215);
+    const { ctx, p, errors: e, asked } = await open(b, { width: 375, height: 667 }, 215);
     const seen = {};
+    const tiles = {};
     for (const z of [1, 2, 4, 8]) {
+      const before = asked.length;
       await look(p, 215, z);
       await p.waitForTimeout(2500);
       seen[z] = await labels(p);
+      tiles[z] = asked.slice(before).filter((a) => a.endsWith('.pbf'));
       await p.screenshot({ path: path.join(OUT, `z${z}.png`) });
       show(z, seen[z]);
     }
-    // Jbel Chendir is in sight, a little left of centre, at every zoom: greyed places beyond the
-    // horizon must never take its place.
-    const chendir = [1, 2, 4, 8].filter((z) => !seen[z].some((l) => l.name === 'Jbel Chendir' && l.visible));
-    check('a place in sight keeps its label at every zoom, ahead of places beyond the horizon', chendir.length === 0, chendir.length ? `missing at ${chendir.join(', ')}x` : '');
+    // Jbel Chendir is in sight, a little left of centre: from 2×, where places beyond the horizon
+    // are greyed in, they must never take its place. (At 1× none are drawn, and the towns and the
+    // taller peaks beside it, a size larger there, may crowd it out.)
+    const chendir = [2, 4, 8].filter((z) => !seen[z].some((l) => l.name === 'Jbel Chendir' && l.visible));
+    check('a place in sight keeps its label when zoomed in, ahead of places beyond the horizon', chendir.length === 0, chendir.length ? `missing at ${chendir.join(', ')}x` : '');
+
+    // Detail grows with zoom: each zoom labels only places that matter enough for it, no more
+    // than its cap, by the same rule the app uses.
+    const rule = await p.evaluate(() => {
+      const f = window.__binoculars.detailFor;
+      return f ? [1, 2, 4, 8].map((z) => [f(z).minScore, f(z).cap]) : null;
+    });
+    const sameRule = JSON.stringify(rule) === JSON.stringify([1, 2, 4, 8].map((z) => DETAIL[z]));
+    const over = [1, 2, 4, 8].flatMap((z) => {
+      const [minScore, cap] = DETAIL[z];
+      const low = seen[z].filter((l) => !POI.includes(l.kind) && !(l.score >= minScore));
+      return [
+        ...(seen[z].length > cap || seen[z].length === 0 ? [`${z}x: ${seen[z].length} labels`] : []),
+        ...low.map((l) => `${z}x: ${l.name} scores ${l.score}`),
+      ];
+    });
+    check('each zoom labels between one and its cap, only places that matter enough for it', sameRule && over.length === 0,
+      sameRule ? over.join(', ') : `the app's rule is ${JSON.stringify(rule)}`);
+    const kinds1 = new Set(seen[1].map((l) => l.kind));
+    const newKinds = [...new Set(seen[8].map((l) => l.kind))].filter((k) => !kinds1.has(k));
+    check('at 8x a kind of place is labelled that 1x does not show', newKinds.length > 0,
+      `1x ${[...kinds1].join(', ')}; 8x ${[...new Set(seen[8].map((l) => l.kind))].join(', ')}`);
+    // Finer map tiles are asked for only zoomed in, at most 12 a step, for the view's wedge.
+    const finer = [1, 2, 4, 8].map((z) => {
+      const zs = tiles[z].map(tileZ);
+      const ok = z === 1 ? zs.length === 0 : zs.length >= 1 && zs.length <= 12 && zs.every((t) => t === FINER_Z[z]);
+      return { z, ok, text: `${z}x: ${zs.length ? zs.join(',') : 'none'}` };
+    });
+    check('zoomed in, up to 12 finer map tiles are asked for at each step, none at 1x', finer.every((f) => f.ok), finer.map((f) => f.text).join(' | '));
     const hiddenOff = await p.evaluate(() => !window.__binoculars.settings.showHidden);
     const terrain = [1, 2, 4, 8].flatMap((z) => seen[z].filter((l) => l.blockedBy === 'terrain').map((l) => `${z}x ${l.name}`));
     check('places behind hills stay hidden at every zoom while the setting is off', hiddenOff && terrain.length === 0, terrain.join(', '));
@@ -93,6 +134,17 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
       curve4.length > 0 && curve4.every((l) => /^Beyond horizon · /.test(l.meta)), curve4.map((l) => `${l.name}: ${l.meta}`).join(' | ') || 'none');
     const grey = await p.evaluate(() => [...document.querySelectorAll('.label.on:not([hidden])')].filter((el) => el._p?.blockedBy === 'curve').every((el) => el.classList.contains('hidden-place')));
     check('places beyond the horizon are drawn greyed, like other hidden places', curve4.length > 0 && grey);
+
+    // At 8x, a little right of Jebel Musa (215°), the villages of the far shore: Eddalya, Hassana
+    // and Mliech at 218-220°, 85 to 100 km off. At 215° itself the only one in frame that is not
+    // behind a hill is Rehana.
+    await look(p, 218, 8);
+    await p.waitForTimeout(2500);
+    const at8 = await labels(p);
+    show('218° 8', at8);
+    await p.screenshot({ path: path.join(OUT, 'villages-8x.png') });
+    const towns8 = at8.filter((l) => l.country === 'Morocco' && SETTLEMENT.includes(l.kind)).map((l) => l.name);
+    check('at 8x Moroccan villages across the sea are labelled, the setting for hidden places off', hiddenOff && towns8.length >= 2, towns8.join(', ') || 'none');
     errors.push(...e);
     await ctx.close();
   }

@@ -33,6 +33,20 @@ export const KINDS = {
   sights: { rank: 50, rise: 8, label: 'Sight' },
 };
 
+// How much detail each zoom shows: the least score a place needs to be labelled (KINDS' rank,
+// plus height for a peak and population for a town, less distance for a village or hamlet; see
+// app.mjs), at most how many labels, and how many may stack above one another. At 1× cities,
+// towns, landmarks and peaks of 250 m or more; from 2× every peak and villages within 20 km;
+// from 4× villages at any distance and viewpoints; at 8× everything, hamlets too. A pinch a
+// little short of a step counts as the step.
+const DETAIL = [
+  { zoom: 8, minScore: 0, cap: 16, rows: 5 },
+  { zoom: 4, minScore: 22, cap: 16, rows: 5 },
+  { zoom: 2, minScore: 35, cap: 14, rows: 4 },
+  { zoom: 1, minScore: 45, cap: 12, rows: 3 },
+];
+export const detailFor = (zoom) => DETAIL.find((d) => zoom >= d.zoom - 0.05) ?? DETAIL[DETAIL.length - 1];
+
 function bbox(lat, lon, km) {
   const dLat = km / 111.32;
   const dLon = km / (111.32 * Math.cos((lat * Math.PI) / 180));

@@ -22,7 +22,10 @@ full screen.
 - Point the centre ring at a place and it locks on, with the place named in a card underneath.
   Tap the card, or any label, for its distance, height and links to Wikipedia and Google Maps.
 - The round button in the bottom-right corner zooms: each tap steps 1×, 2×, 4×, 8× and back to
-  1×. Pinch works too.
+  1×. Pinch works too. Zooming in names smaller places in the narrower view: at 1× cities,
+  towns, landmarks and the taller peaks; from 2× every peak and villages within 20 km; from 4×
+  villages at any distance and viewpoints; at 8× hamlets too (`detailFor` in `js/places.mjs`).
+  Labels are sized by distance, a size up for a city or big town and a size down for a village.
 - If labels sit a little off the real thing, tap **Fix labels**, drag until the dotted skyline lies on
   the real one, then **Done**. The correction is remembered.
 - The chips above the bottom bar — **Food**, **Shops**, **Travel**, **Sights** — add those places
@@ -45,7 +48,9 @@ A static web app with no build step. On start it loads, for 150 km around you:
   vector map tiles: 25 or so tiles, the one under you first, four at a time, each shown as it
   arrives, with "Finding more names… n/N" until they are all in (`js/tiles.mjs`); each tile's
   names are saved on the phone for 30 days, so a second look from nearby asks only for tiles it
-  has not seen;
+  has not seen. Hamlets count within 30 km, villages at any distance. Zoomed in, a moment after
+  you stop turning, up to 12 finer tiles (zoom 10 at 2×, 11 at 4×, 12 at 8×) in the direction
+  you face are asked for too, nearest first, and saved the same way;
 - restaurants, shops, stations and sights from the same map tiles' most detailed level (zoom 14,
   about 2 km a tile; `js/pois.mjs`), only once a chip is on, out to 8 km, and only the tiles
   in the direction you face, nearest first, a moment after you stop turning; saved like the

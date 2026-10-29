@@ -1,14 +1,13 @@
 import { angleDiff, apparentAngle, compass, distance, horizonAlong, lineOfSight } from './geo.mjs';
 import { Terrain } from './terrain.mjs';
-import { KINDS, dedupe, isMajor, loadMajorPlaces, loadPlaces, nameKey, withMajor } from './places.mjs';
-import { loadTilePlaces } from './tiles.mjs';
+import { KINDS, dedupe, detailFor, isMajor, loadMajorPlaces, loadPlaces, nameKey, withMajor } from './places.mjs';
+import { finerPlan, loadFinerTile, loadTilePlaces, tilePlan } from './tiles.mjs';
 import { loadDetails, loadPoiTile, poiPlan, poiRange } from './pois.mjs';
 import { countryAt, loadCountries } from './countries.mjs';
 import { axesFrom, cameraAxes, direction, headingOf, pitchOf, turn } from './orientation.mjs';
 
 const RANGE_KM = 150;
 const HORIZON_STEP = 0.25; // degrees between skyline rays
-const MAX_LABELS = 12; // at 1×; more as you zoom in
 const DEMO = { lat: 36.5068, lon: -4.886, heading: 215, pitch: 0.3 }; // Marbella seafront, facing the Strait
 
 const $ = (id) => document.getElementById(id);
@@ -221,6 +220,8 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     if (moved) {
       world.places = [];
       world.pois = [];
+      finer.raw.clear();
+      finer.tiles = new Set(tilePlan(lat, lon, RANGE_KM).map((t) => `${t.z}/${t.x}/${t.y}`));
     }
     world.items = prev;
     world.placesDone = false;
@@ -316,28 +317,99 @@ async function computeHorizon() {
   world.skylineCountry.clear();
 }
 
+// Distance, direction, angle, whether hills or the curve hide it, and how much it matters
+// (score, which decides who gets a label at each zoom: detailFor); null when out of range.
+function measurePlace(p) {
+  const ground = terrain.elev(p.lat, p.lon);
+  const k = KINDS[p.kind];
+  const top =
+    p.kind === 'peak' ? Math.max(p.ele ?? 0, ground) : Math.max(ground, p.ele ?? 0) + (p.height ?? k.rise);
+  const los = lineOfSight(terrain.elev, world.lat, world.lon, world.eye, p.lat, p.lon, top, { peak: p.kind === 'peak' });
+  if (los.d > RANGE_KM * 1000) return null;
+  const c = countryAt(p.lat, p.lon);
+  let score = k.rank;
+  if (p.kind === 'peak') score += Math.min(40, top / 50);
+  if (p.population) score += Math.min(25, Math.log10(p.population) * 4);
+  if (p.kind === 'village' || p.kind === 'hamlet') score -= Math.min(15, los.d / 4000);
+  return { ...p, ...los, top, country: c?.country ?? null, continent: c?.continent ?? null, score };
+}
+
+const byScore = (a, b) => b.score - a.score;
+
 async function computePlaces(places, gen) {
   const out = [];
   for (let i = 0; i < places.length; i++) {
-    const p = places[i];
-    const ground = terrain.elev(p.lat, p.lon);
-    const k = KINDS[p.kind];
-    const top =
-      p.kind === 'peak' ? Math.max(p.ele ?? 0, ground) : Math.max(ground, p.ele ?? 0) + (p.height ?? k.rise);
-    const los = lineOfSight(terrain.elev, world.lat, world.lon, world.eye, p.lat, p.lon, top, { peak: p.kind === 'peak' });
-    if (los.d > RANGE_KM * 1000) continue;
-    const c = countryAt(p.lat, p.lon);
-    let score = k.rank;
-    if (p.kind === 'peak') score += Math.min(40, top / 50);
-    if (p.population) score += Math.min(25, Math.log10(p.population) * 4);
-    if (p.kind === 'village' || p.kind === 'hamlet') score -= Math.min(15, los.d / 4000);
-    out.push({ ...p, ...los, top, country: c?.country ?? null, continent: c?.continent ?? null, score });
+    const m = measurePlace(places[i]);
+    if (m) out.push(m);
     if (i % 150 === 149) await yieldToUI();
   }
-  out.sort((a, b) => b.score - a.score);
-  const unique = dedupe(out);
+  // With the places from finer tiles loaded while zoomed in, up to this moment (addFiner adds
+  // the ones after).
+  const ids = new Set(places.map((p) => p.id));
+  for (const p of finer.raw.values()) {
+    const m = !ids.has(p.id) && measurePlace(p);
+    if (m) out.push(m);
+  }
+  const unique = dedupe(out.sort(byScore));
   // A newer part or a height change may have finished first; only the latest list wins.
   if (gen === world.gen && places === world.items) world.places = unique;
+}
+
+// ---------- finer place names when zoomed in ----------
+// Zoomed in, the map tiles a level or more finer than the first load (tiles.mjs: finerPlan)
+// name smaller places in the direction looked at: at most FINER_MAX tiles a view, nearest
+// first, once the view has settled for a moment, like the points of interest below.
+const FINER_WORKERS = 2;
+const FINER_MAX = 12;
+// raw: id → place as its tile gave it; tiles: 'z/x/y' asked for from here (the first load's
+// own tiles included, so none is asked twice).
+const finer = { raw: new Map(), tiles: new Set(), key: '', timer: null, queue: [], busy: 0 };
+
+// Called each frame; plans again when the heading moves 5° or the zoom passes a step.
+function planFiner(heading, halfDeg) {
+  const step = detailFor(view.zoomTarget).zoom;
+  const gen = world.gen;
+  const key = step > 1 && world.measuredGen === gen ? `${gen}|${Math.round(heading / 5)}|${step}` : '';
+  if (key === finer.key) return;
+  finer.key = key;
+  clearTimeout(finer.timer);
+  finer.queue = [];
+  if (!key) return;
+  finer.timer = setTimeout(() => {
+    if (gen !== world.gen) return;
+    finer.queue = finerPlan(world.lat, world.lon, heading, halfDeg / step + 2, step, RANGE_KM)
+      .filter((t) => !finer.tiles.has(`${t.z}/${t.x}/${t.y}`))
+      .slice(0, FINER_MAX)
+      .map((t) => ({ ...t, gen }));
+    for (let i = finer.busy; i < FINER_WORKERS; i++) finerWorker();
+  }, POI_WAIT_MS);
+}
+async function finerWorker() {
+  finer.busy++;
+  try {
+    while (finer.queue.length) {
+      const t = finer.queue.shift();
+      const k = `${t.z}/${t.x}/${t.y}`;
+      if (t.gen !== world.gen || finer.tiles.has(k)) continue;
+      finer.tiles.add(k);
+      try {
+        const list = await loadFinerTile(t, world.lat, world.lon, RANGE_KM);
+        if (t.gen !== world.gen) continue; // moved meanwhile: measured from the wrong place
+        for (const p of list) finer.raw.set(p.id, p);
+        addFiner(list);
+      } catch (err) {
+        console.warn(err);
+        if (t.gen === world.gen) finer.tiles.delete(k); // asked for again on the next look this way
+      }
+    }
+  } finally {
+    finer.busy--;
+  }
+}
+function addFiner(list) {
+  const have = new Set(world.places.map((p) => p.id));
+  const fresh = list.filter((p) => !have.has(p.id)).map(measurePlace).filter(Boolean);
+  if (fresh.length) world.places = dedupe([...world.places, ...fresh].sort(byScore));
 }
 
 // ---------- points of interest: restaurants, shops, stations, sights ----------
@@ -536,8 +608,9 @@ const TIERS = [
   { upTo: 80000, size: 14, alpha: 0.9, cls: 'mid' },
   { upTo: Infinity, size: 12, alpha: 0.75, cls: 'far' },
 ];
-const LABEL_ROWS = 3; // how many labels may stack above one another
 const LABEL_FADE_MS = 150;
+// −1 for a size up, +1 for a size down; points of interest are sized by distance alone.
+const importance = (p) => (isPoi(p) ? 0 : p.score >= 75 ? -1 : p.score < 35 ? 1 : 0);
 
 function focal(W, H) {
   const v = $('video');
@@ -593,8 +666,9 @@ function labelEl(p) {
   if (p.kind === 'peak' && p.top) bits.push(`${Math.round(p.top)} m`);
   if (p.country && p.country !== world.home?.country) bits.push(p.country);
   m.textContent = bits.join(' · ');
-  // Nearer places are larger and brighter: under 20 km, 20–80 km, beyond.
-  const t = TIERS.find((x) => p.d < x.upTo);
+  // Nearer places are larger and brighter: under 20 km, 20–80 km, beyond. A place that matters
+  // more (a city, a high peak) is a size up, a small one (a far village, a hamlet) a size down.
+  const t = TIERS[Math.min(TIERS.length - 1, Math.max(0, TIERS.findIndex((x) => p.d < x.upTo) + importance(p)))];
   el.classList.remove('mid', 'far');
   if (t.cls) el.classList.add(t.cls);
   el._alpha = t.alpha;
@@ -639,7 +713,9 @@ function frame() {
   const bottom = chips.hidden ? H - 70 : Math.min(H - 70, chips.getBoundingClientRect().top - 8);
   if (settings.showSkyline || view.aligning) drawSkyline(project, W);
   // Half the width of the view in degrees at 1×, for which map tiles to ask for.
-  planPois(heading, (Math.atan(W / 2 / (f / view.zoom)) * 180) / Math.PI);
+  const half1 = (Math.atan(W / 2 / (f / view.zoom)) * 180) / Math.PI;
+  planPois(heading, half1);
+  planFiner(heading, half1);
   const places = shownPlaces();
   const target = pickTarget(places, project, W, H, now);
   const cardY = placeReticle(target, W, H);
@@ -788,7 +864,8 @@ const beyond = (p) => !p.visible && p.blockedBy === 'curve' && view.zoom >= BEYO
 function drawLabels(places, project, W, H, target, reserved, top, bottom, now) {
   const placed = [reserved];
   const drawn = [];
-  const max = Math.round(MAX_LABELS * view.zoom);
+  // Fewer, bigger names at 1×; smaller places as the zoom narrows the view (detailFor).
+  const { minScore, cap: max, rows } = detailFor(view.zoom);
   // Points of interest only so far: a few km by eye, further zoomed in.
   const reach = poiRange(view.zoom) * 1000;
   // Hidden places in frame, counted only while nothing is labelled: the empty-view note offers them.
@@ -798,7 +875,7 @@ function drawLabels(places, project, W, H, target, reserved, top, bottom, now) {
     if (drawn.length >= max) break;
     if (beyond(p) !== later) continue;
     if (p.id === target?.id) continue; // the card under the reticle names it
-    if (isPoi(p) && p.d > reach) continue;
+    if (isPoi(p) ? p.d > reach : p.score < minScore) continue;
     const skip = !p.visible && !settings.showHidden && !asked(p) && !beyond(p);
     if (skip && drawn.length) continue;
     const pt = project(p.brg, p.angle);
@@ -814,7 +891,7 @@ function drawLabels(places, project, W, H, target, reserved, top, bottom, now) {
     const h = el._h;
     const x = Math.min(Math.max(4, sx - w / 2), W - w - 4);
     let spot = null;
-    for (let row = 0; row < LABEL_ROWS && !spot; row++) {
+    for (let row = 0; row < rows && !spot; row++) {
       const y = sy - 22 - h - row * (h + 4);
       if (y < top) break;
       const box = [x, y, x + w, y + h];
@@ -1160,4 +1237,4 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 if (params.has('autostart')) $('start-btn').click();
 
 // Exposed for automated checks only.
-window.__binoculars = { world, view, settings, apparentAngle };
+window.__binoculars = { world, view, settings, apparentAngle, detailFor };
