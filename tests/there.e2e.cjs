@@ -112,6 +112,32 @@ const z14 = (asked) => asked.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t));
   check('after a height change a listed place\'s sheet says what is visible from the new height',
     flipped && /^Yes/.test(sheet) === flipped.visible, JSON.stringify({ flipped, sheet, before, after }));
 
+  // 6. Fault: a real compass wavers by a degree or so, and at 2x the list takes only a couple of
+  // degrees either side of the middle, so rows come and go under the finger and a tap opens the
+  // wrong place or none. Edge: the heading swinging ±1.2° three times a second, a tap a quarter
+  // second after the row is read.
+  await p.click('#info [data-close]').catch(() => {});
+  await p.evaluate(() => {
+    const t0 = performance.now();
+    window.__wobble = setInterval(() => (window.__binoculars.view.heading = 274 + 1.2 * Math.sin(((performance.now() - t0) / 1000) * 2 * Math.PI * 3)), 16);
+  });
+  await p.waitForTimeout(1000); // it has been wavering while the user aimed
+  const taps = [];
+  for (let i = 0; i < 8; i++) {
+    const rows = await p.$$eval('#there button', (bs) => bs.map((x) => ({ text: x.textContent, r: x.getBoundingClientRect().toJSON() })));
+    const row = rows[i % Math.max(rows.length, 1)];
+    if (!row) { taps.push({ row: null }); await p.waitForTimeout(300); continue; }
+    await p.waitForTimeout(250);
+    await p.mouse.click(row.r.x + row.r.width / 2, row.r.y + row.r.height / 2);
+    const name = await p.waitForFunction(() => !document.getElementById('info').hidden, null, { timeout: 1000 })
+      .then(() => p.textContent('#info-name'), () => null);
+    taps.push({ row: row.text, opened: name });
+    if (name !== null) await p.click('#info [data-close]');
+  }
+  await p.evaluate(() => clearInterval(window.__wobble));
+  check('with the compass wavering, tapping a row opens that row\'s place',
+    taps.every((t) => t.row && t.opened && t.row.startsWith(`${t.opened} · `)), JSON.stringify(taps));
+
   // 5. Fault: on a phone held sideways, or a short one, the list reaches up over the reticle and
   // the card under it, and the labels are pushed above it off the top. Edge: 390 px tall, where
   // there is no room for even one row, and 667 px, where there is room for a few.

@@ -532,6 +532,7 @@ const HINT_DELAY_MS = 400;
 // and the list names them anyway. Rebuilt only when what it holds changes.
 const THERE_MAX = 6;
 let thereKey = '';
+let thereIds = new Set();
 function updateThere(places, heading, half) {
   const el = $('there');
   let items = [];
@@ -540,7 +541,9 @@ function updateThere(places, heading, half) {
     const { minScore } = detailFor(view.zoom);
     items = places
       .filter((p) => (p.visible || asked(p) || beyond(p)) && (isPoi(p) ? p.d <= reach : p.score >= minScore))
-      .filter((p) => Math.abs(angleDiff(p.brg, heading)) <= half / 4)
+      // A place joins within a quarter of the width and stays until it is twice that far off,
+      // so a wavering compass does not swap rows under the finger.
+      .filter((p) => Math.abs(angleDiff(p.brg, heading)) <= (thereIds.has(p.id) ? half / 2 : half / 4))
       .sort((a, b) => a.d - b.d)
       .slice(0, THERE_MAX);
   }
@@ -548,6 +551,7 @@ function updateThere(places, heading, half) {
   const key = `${innerHeight}|${$('chip-hint').hidden}:` + items.map((p) => `${p.id}|${Math.round(p.d)}|${p.visible ? 'v' : p.blockedBy}`).join(',');
   if (key === thereKey) return;
   thereKey = key;
+  thereIds = new Set(items.map((p) => p.id));
   el.replaceChildren(
     ...items.map((p) => {
       const b = document.createElement('button');
