@@ -145,6 +145,30 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
     await p.screenshot({ path: path.join(OUT, 'villages-8x.png') });
     const towns8 = at8.filter((l) => l.country === 'Morocco' && SETTLEMENT.includes(l.kind)).map((l) => l.name);
     check('at 8x Moroccan villages across the sea are labelled, the setting for hidden places off', hiddenOff && towns8.length >= 2, towns8.join(', ') || 'none');
+
+    // Names said once. Gibraltar (226°, 58 km, past the curve) is a city in a country of the
+    // same name, so its label and its info card leave the country out; the Rock of Gibraltar
+    // beside it still names it. San Pedro de Alcántara comes from both the map tiles and
+    // Overpass, spelt with and without "de", and is one place.
+    await look(p, 226, 2);
+    await p.waitForTimeout(2000);
+    const at226 = await labels(p);
+    show('226° 2', at226);
+    const gib = at226.find((l) => l.name === 'Gibraltar');
+    const rock = at226.find((l) => l.name === 'Rock of Gibraltar');
+    check('a place named like its country does not repeat the name on its label',
+      gib && !/Gibraltar/.test(gib.meta) && rock && /Gibraltar/.test(rock.meta),
+      `${gib ? gib.meta : 'no Gibraltar label'} | ${rock ? rock.meta : 'no Rock of Gibraltar label'}`);
+    const lead = await p.evaluate(() => {
+      const el = [...document.querySelectorAll('.label.on:not([hidden])')].find((x) => x._p?.name === 'Gibraltar');
+      if (!el) return null;
+      el.click();
+      return document.getElementById('info').hidden ? null : document.getElementById('info-lead').textContent;
+    });
+    check('nor in its info card', lead && !/in Gibraltar/.test(lead) && /in Europe/.test(lead), lead ?? 'no info card');
+    await p.evaluate(() => document.querySelector('[data-close="info"]').click());
+    const sanPedro = await p.evaluate(() => window.__binoculars.world.places.filter((q) => /^San Pedro/.test(q.name)).map((q) => q.name));
+    check('one San Pedro de Alcántara, not one for each spelling', sanPedro.length === 1, sanPedro.join(', '));
     errors.push(...e);
     await ctx.close();
   }

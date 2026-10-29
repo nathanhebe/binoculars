@@ -638,6 +638,9 @@ function formatKm(m) {
   return m < 1000 ? `${Math.round(m)} m` : m < 20000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 1000)} km`;
 }
 
+// The place's country, unless the place is named for it: not "Gibraltar, a city in Gibraltar".
+const countryOf = (p) => (p.country && nameKey(p.country) !== nameKey(p.name) ? p.country : null);
+
 function labelEl(p) {
   let el = labelEls.get(p.id);
   // A move or a height change recomputes every place, so refresh the text and what a tap opens.
@@ -664,7 +667,7 @@ function labelEl(p) {
   const bits = isPoi(p) ? [p.type, formatKm(p.d)] : [formatKm(p.d)];
   if (!p.visible && p.blockedBy === 'curve') bits.unshift('Beyond horizon');
   if (p.kind === 'peak' && p.top) bits.push(`${Math.round(p.top)} m`);
-  if (p.country && p.country !== world.home?.country) bits.push(p.country);
+  if (countryOf(p) && p.country !== world.home?.country) bits.push(p.country);
   m.textContent = bits.join(' · ');
   // Nearer places are larger and brighter: under 20 km, 20–80 km, beyond. A place that matters
   // more (a city, a high peak) is a size up, a small one (a far village, a hamlet) a size down.
@@ -821,7 +824,7 @@ function updateCard(target, scan) {
     const meta = [isPoi(p) ? p.type : KINDS[p.kind].label];
     if (p.kind === 'peak' && p.top) meta.push(`${Math.round(p.top)} m`);
     meta.push(formatKm(p.d));
-    lines = [p.name, meta.join(' · '), [p.country, p.continent].filter(Boolean).join(' · ')];
+    lines = [p.name, meta.join(' · '), [countryOf(p), p.continent].filter(Boolean).join(' · ')];
   } else if (scan.land) {
     const s = scan.land;
     const c = s.land?.country;
@@ -1069,7 +1072,7 @@ function openInfo(p) {
   const kind = (poi ? p.type : KINDS[p.kind].label.split(' /')[0]).toLowerCase();
   $('info-kind').textContent = poi ? `${KINDS[p.kind].label} · ${p.type}` : KINDS[p.kind].label;
   $('info-height-row').hidden = poi;
-  const where = [p.country, p.continent].filter(Boolean).join(', ');
+  const where = [countryOf(p), p.continent].filter(Boolean).join(', ');
   const seen = p.visible ? 'You can see it from here.' : p.blockedBy === 'curve' ? 'Below the horizon.' : 'Hidden behind hills.';
   $('info-lead-rest').textContent =
     `, ${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}${where ? ` in ${where}` : ''} — ${formatKm(p.d)} ${compass(p.brg)}. ${seen}`;

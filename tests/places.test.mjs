@@ -63,6 +63,27 @@ test('near-identical names within 3 km collapse to the better one', () => {
   assert.deepEqual(dedupe(best).map((p) => p.id), ['a', 'd', 'e', 'g', 'j']);
 });
 
+// Fault: one town labelled twice because the map tiles write "San Pedro de Alcántara" and
+// Overpass "San Pedro Alcántara". Edges: the same name 5 km away is a different place, a hyphen
+// or "de la" makes no difference, a shorter name is another place, and names that are only a
+// joining word ("La", "El") stay apart.
+test('names that differ only by a joining word or a hyphen collapse within 3 km', () => {
+  const at = (id, name, km) => ({ id, name, lat: 36.48 + km / 111.2, lon: -4.99 });
+  const best = [
+    at('a', 'San Pedro Alcántara', 0),
+    at('b', 'San Pedro de Alcántara', 0.01),
+    at('c', 'San Pedro de Alcántara', 5),
+    at('d', 'San Pedro', 0.5),
+    at('e', 'Campo-Mijas', 10),
+    at('f', 'Campo Mijas', 10.5),
+    at('g', 'Alhaurín de la Torre', 20),
+    at('h', 'Alhaurín Torre', 20.4),
+    at('i', 'La', 30),
+    at('j', 'El', 30.1),
+  ];
+  assert.deepEqual(dedupe(best).map((p) => p.id), ['a', 'c', 'd', 'e', 'g', 'i', 'j']);
+});
+
 // Fault: a server that accepts the request and never answers holds that part for over two
 // minutes before the next server is tried. Edge: it never answers at all.
 test('a server that never answers is given up on after 25 s for the next one', async (t) => {

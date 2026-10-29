@@ -184,7 +184,14 @@ export function withMajor(items, major) {
 }
 
 // "Jbel Musa", "Jebel Musa" and "Musa" are one mountain: drop a leading word for mountain.
-const twinKey = (s) => nameKey(s).trim().replace(/^(jbel|jebel|djebel|pico|monte|mount|mt\.?)\s+(?=\S)/, '');
+// "San Pedro de Alcántara" and "San Pedro Alcántara" are one town: drop joining words and
+// hyphens, unless nothing else is left ("La", "El").
+const JOINING = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y']);
+const twinKey = (s) => {
+  const words = nameKey(s).replace(/^\s*(jbel|jebel|djebel|pico|monte|mount|mt\.?)\s+(?=\S)/, '').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const kept = words.filter((w) => !JOINING.has(w));
+  return (kept.length ? kept : words).join(' ');
+};
 
 // OpenStreetMap sometimes maps one summit or town twice, spelt a little differently; keep the
 // first (best) of each name within 3 km. `places` must be sorted best first.
