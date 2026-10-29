@@ -6,7 +6,7 @@ import { axesFrom, cameraAxes, direction, headingOf, pitchOf, turn } from './ori
 
 const RANGE_KM = 150;
 const HORIZON_STEP = 0.25; // degrees between skyline rays
-const MAX_LABELS = 28;
+const MAX_LABELS = 12; // at 1×; more as you zoom in
 const DEMO = { lat: 36.5068, lon: -4.886, heading: 215, pitch: 0.3 }; // Marbella seafront, facing the Strait
 
 const $ = (id) => document.getElementById(id);
@@ -345,6 +345,14 @@ function currentAxes() {
 const canvas = $('overlay');
 const ctx = canvas.getContext('2d');
 const labelEls = new Map();
+const FONT = getComputedStyle(document.body).fontFamily;
+const TIERS = [
+  { upTo: 20000, size: 16, alpha: 1, cls: '' },
+  { upTo: 80000, size: 14, alpha: 0.9, cls: 'mid' },
+  { upTo: Infinity, size: 12, alpha: 0.75, cls: 'far' },
+];
+const LABEL_ROWS = 3; // how many labels may stack above one another
+const LABEL_FADE_MS = 150;
 
 function focal(W, H) {
   const v = $('video');
@@ -379,6 +387,7 @@ function labelEl(p) {
   if (!el) {
     el = document.createElement('button');
     el.className = `label k-${p.kind}`;
+    el.hidden = true; // until placed, so it fades in
     const n = document.createElement('span');
     n.className = 'n';
     el.append(n, Object.assign(document.createElement('span'), { className: 'm' }));
@@ -396,7 +405,18 @@ function labelEl(p) {
   if (p.kind === 'peak' && p.top) bits.push(`${Math.round(p.top)} m`);
   if (p.country && p.country !== world.home?.country) bits.push(p.country);
   m.textContent = bits.join(' · ');
-  el._w = Math.max(64, Math.max(p.name.length * 8.2, m.textContent.length * 6.4) + 18);
+  // Nearer places are larger and brighter: under 20 km, 20–80 km, beyond.
+  const t = TIERS.find((x) => p.d < x.upTo);
+  el.classList.remove('mid', 'far');
+  if (t.cls) el.classList.add(t.cls);
+  el._alpha = t.alpha;
+  // Size the box from the text itself, measured in the label's fonts (meta is tracked capitals).
+  ctx.font = `600 ${t.size}px ${FONT}`;
+  const nw = ctx.measureText(p.name).width;
+  ctx.font = `11px ${FONT}`;
+  const mw = ctx.measureText(m.textContent.toUpperCase()).width + m.textContent.length * 0.66;
+  el._w = Math.ceil(Math.max(nw, mw)) + 10;
+  el._h = Math.ceil(t.size * 1.2) + 14 + 4;
   return el;
 }
 
@@ -417,11 +437,14 @@ function frame() {
   const heading = headingOf(axes.forward);
   const pitch = pitchOf(axes.forward) - settings.calibPitch;
 
+  const now = performance.now();
+  // Keep labels below the banner, however tall it is on this phone.
+  const top = $('banner').getBoundingClientRect().bottom + 8;
   if (settings.showSkyline || view.aligning) drawSkyline(project, W);
-  const target = pickTarget(project, W, H, performance.now());
+  const target = pickTarget(project, W, H, now);
   const cardY = placeReticle(target, W, H);
   // Keep labels off the card under the reticle.
-  drawLabels(project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66]);
+  drawLabels(project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66], top, now);
   updateReadout(heading, pitch);
   if (world.horizon.length) {
     const scan = scanSkyline(heading);
@@ -553,12 +576,12 @@ function drawSkyline(project, W) {
   ctx.setLineDash([]);
 }
 
-function drawLabels(project, W, H, target, reserved) {
+function drawLabels(project, W, H, target, reserved, top, now) {
   const placed = [reserved];
-  const used = new Set();
-  const top = 96; // keep clear of the country banner
+  const drawn = [];
+  const max = Math.round(MAX_LABELS * view.zoom);
   for (const p of world.places) {
-    if (placed.length > MAX_LABELS) break;
+    if (drawn.length >= max) break;
     if (!p.visible && !settings.showHidden) continue;
     if (p.id === target?.id) continue; // the card under the reticle names it
     const pt = project(p.brg, p.angle);
@@ -567,10 +590,10 @@ function drawLabels(project, W, H, target, reserved) {
     if (sx < -20 || sx > W + 20 || sy < top - 40 || sy > H - 70) continue;
     const el = labelEl(p);
     const w = el._w;
-    const h = 38;
+    const h = el._h;
     const x = Math.min(Math.max(4, sx - w / 2), W - w - 4);
     let spot = null;
-    for (let row = 0; row < 7 && !spot; row++) {
+    for (let row = 0; row < LABEL_ROWS && !spot; row++) {
       const y = sy - 22 - h - row * (h + 4);
       if (y < top) break;
       const box = [x, y, x + w, y + h];
@@ -579,22 +602,50 @@ function drawLabels(project, W, H, target, reserved) {
     }
     if (!spot) continue;
     placed.push(spot);
-    used.add(p.id);
-    el.hidden = false;
-    el.classList.toggle('hidden-place', !p.visible);
-    el.style.transform = `translate(${spot[0]}px, ${spot[1]}px)`;
-    ctx.strokeStyle = p.visible ? 'rgba(255, 255, 255, 0.8)' : 'rgba(160, 170, 190, 0.5)';
-    ctx.lineWidth = 1;
+    drawn.push({ p, el, sx, sy, spot });
+  }
+  // Leader lines and dots first, with every label's box cut out, so a line never runs through
+  // another label's text.
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, W, H);
+  for (const { spot } of drawn) ctx.rect(spot[0], spot[1], spot[2] - spot[0], spot[3] - spot[1]);
+  ctx.clip('evenodd');
+  ctx.lineWidth = 1;
+  for (const { p, el, sx, sy, spot } of drawn) {
+    ctx.strokeStyle = p.visible ? `rgba(255, 255, 255, ${0.8 * el._alpha})` : `rgba(160, 170, 190, ${0.5 * el._alpha})`;
     ctx.beginPath();
     ctx.moveTo(sx, spot[3]);
     ctx.lineTo(sx, sy);
     ctx.stroke();
+  }
+  ctx.restore();
+  for (const { p, sx, sy } of drawn) {
     ctx.fillStyle = p.visible ? '#ffcf4a' : '#8a93a6';
     ctx.beginPath();
     ctx.arc(sx, sy, 3, 0, Math.PI * 2);
     ctx.fill();
   }
-  for (const [id, el] of labelEls) if (!used.has(id)) el.hidden = true;
+  const used = new Set();
+  for (const { p, el, spot } of drawn) {
+    used.add(p.id);
+    el._off = null;
+    el.classList.toggle('hidden-place', !p.visible);
+    el.style.transform = `translate(${spot[0]}px, ${spot[1]}px)`;
+    if (el.hidden) {
+      el.hidden = false;
+      void el.offsetWidth; // start from transparent so it fades in
+    }
+    el.classList.add('on');
+  }
+  // Fade out, then hide once faded.
+  for (const [id, el] of labelEls) {
+    if (used.has(id) || el.hidden) continue;
+    el.classList.remove('on');
+    el._off ??= now;
+    if (now - el._off > LABEL_FADE_MS) el.hidden = true;
+  }
+  return drawn;
 }
 
 function updateReadout(heading, pitch) {

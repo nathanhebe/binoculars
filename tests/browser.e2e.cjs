@@ -52,6 +52,23 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   const aimed = await st(() => document.querySelector('#target:not([hidden]) .t-name')?.textContent ?? '');
   check('reticle card names Jebel Musa, Rock of Gibraltar labelled', aimed === 'Jebel Musa' && !ls.includes('Jebel Musa') && ls.includes('Rock of Gibraltar'), `card ${aimed} :: ${ls.join(', ')}`);
   check('no duplicate labels', new Set(ls).size === ls.length, ls.join(', '));
+  // Fault: labels are heavy dark boxes, all one size, that pop on and off. Each label must be
+  // bare text on a halo, sized and dimmed by distance (under 20 km, 20–80 km, beyond), fading.
+  const labelLook = () => st(() => [...document.querySelectorAll('.label:not([hidden])')].map((l) => {
+    const place = window.__binoculars.world.places.find((x) => x.name === l.querySelector('.n').textContent);
+    const cs = getComputedStyle(l);
+    const n = getComputedStyle(l.querySelector('.n'));
+    const m = getComputedStyle(l.querySelector('.m'));
+    const want = place.d < 20000 ? [16, 1] : place.d < 80000 ? [14, 0.9] : [12, 0.75];
+    if (l.classList.contains('hidden-place')) want[1] *= 0.6;
+    const got = [parseFloat(n.fontSize), parseFloat(cs.opacity)];
+    const ok = cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.textShadow !== 'none' && got[0] === want[0] &&
+      Math.abs(got[1] - want[1]) < 0.01 && m.fontSize === '11px' && m.textTransform === 'uppercase' &&
+      /opacity/.test(cs.transitionProperty);
+    return `${place.name} ${Math.round(place.d / 1000)} km ${got.join('/')}${ok ? '' : ' WRONG'}`;
+  }));
+  const look215 = await labelLook();
+  check('labels are bare text on a halo, sized and dimmed by distance, and fade', look215.length > 0 && look215.every((x) => !/WRONG/.test(x)), look215.join(', '));
   await p.screenshot({ path: `${OUT}/1-africa.png` });
 
   // Save what loaded into the app's own cache so later loads are instant.
@@ -185,7 +202,24 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   const bn = await bannerText(p);
   ls = await labels();
   check('looking north: Europe / Spain with Spanish places', bn[0] === 'Europe' && bn[1] === 'Spain' && ls.length > 0, `${bn.join(' | ')} :: ${ls.join(', ')}`);
+  const lookN = await labelLook();
+  check('near labels north are larger, styled as above', lookN.some((x) => / 16\/1$/.test(x)) && lookN.every((x) => !/WRONG/.test(x)), lookN.join(', '));
   await p.screenshot({ path: `${OUT}/5-north.png` });
+
+  // Fault: labels are kept out of a fixed 96 px at the top, so on a phone with a notch, where
+  // the banner sits lower, they run under it. Edge: a 47 px notch, labels pushed to the top.
+  await p.goto(BASE + '?lat=36.5068&lon=-4.886&heading=70&pitch=-6&nocam=1&autostart=1');
+  await p.addStyleTag({ content: ':root { --safe-top: 47px; }' });
+  await ready();
+  await st(() => (window.__binoculars.settings.showHidden = true));
+  await p.waitForTimeout(500);
+  const clear = await st(() => {
+    const bottom = document.getElementById('banner').getBoundingClientRect().bottom;
+    const tops = [...document.querySelectorAll('.label:not([hidden])')].map((l) => Math.round(l.getBoundingClientRect().top));
+    return { bottom: Math.round(bottom), tops };
+  });
+  await st(() => (window.__binoculars.settings.showHidden = false));
+  check('labels stay below the banner on a phone with a notch', clear.tops.length > 0 && clear.tops.every((t) => t >= clear.bottom), JSON.stringify(clear));
 
   // 7. Demo button from a cold start.
   await p.goto(BASE + '?nocam=1');
