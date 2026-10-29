@@ -1,8 +1,11 @@
-// End-to-end checks of the user paths in a real Chromium, phone-sized, against the live map
-// servers (place names take a few minutes to arrive). Run from the repo root:
+// End-to-end checks of the user paths in a real Chromium, phone-sized. Terrain comes from the
+// live server; place names come from tests/fixtures/marbella-overpass.json, because the public
+// Overpass servers often take minutes or refuse. Run from the repo root:
 //   python3 -m http.server 8765 &
 //   NODE_PATH=<dir with playwright installed>/node_modules node tests/browser.e2e.cjs <screenshot dir>
 const { chromium } = require('playwright');
+const FIXTURE = require('fs').readFileSync(require('path').join(__dirname, 'fixtures/marbella-overpass.json'), 'utf8');
+const FIXTURE_COUNT = JSON.parse(FIXTURE).elements.length;
 const OUT = process.argv[2];
 const BASE = process.env.BASE_URL || 'http://localhost:8765/';
 const results = [];
@@ -11,6 +14,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
 (async () => {
   const b = await chromium.launch({ channel: 'chromium' });
   const ctx = await b.newContext({ viewport: { width: 430, height: 860 }, deviceScaleFactor: 2, hasTouch: true });
+  await ctx.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: FIXTURE }));
   const errors = [];
   const watch = (p) => {
     p.on('pageerror', (e) => errors.push(String(e)));
@@ -34,7 +38,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await p.evaluate(() => caches.open('another-site-v1'));
   await p.unroute(/\/favicon\.ico$/);
 
-  // 1. Real network: Marbella seafront facing Jebel Musa.
+  // 1. Marbella seafront facing Jebel Musa.
   await p.goto(BASE + '?lat=36.5068&lon=-4.886&heading=215&pitch=0.3&nocam=1&autostart=1');
   // The app registers it only over https; register it here so the local server runs it too.
   await p.evaluate(async (u) => { await navigator.serviceWorker.register(u); await navigator.serviceWorker.ready; }, BASE + 'sw.js');
@@ -54,12 +58,14 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     localStorage.setItem('binoculars:places:v1', JSON.stringify({ t: Date.now(), lat: w.lat, lon: w.lon, range: 150, items }));
     return items.length;
   });
-  check('places loaded from the live server', n > 500, `${n} places`);
+  check('every test place within range loaded', n >= FIXTURE_COUNT, `${n} places, ${FIXTURE_COUNT} in the test data`);
 
   // 2. Arrow keys and drag pan.
   const h0 = await readout();
   for (let i = 0; i < 5; i++) await p.keyboard.press('ArrowRight');
-  check('arrow keys turn the view', (await readout()) !== h0, `${h0} -> ${await readout()}`);
+  // The readout redraws on the next frame, so wait for it rather than reading it at once.
+  const turned = await p.waitForFunction((h) => document.getElementById('heading').textContent !== h, h0, { timeout: 5000 }).then(() => true, () => false);
+  check('arrow keys turn the view', turned, `${h0} -> ${await readout()}`);
   const before = await st(() => window.__binoculars.view.heading);
   await p.mouse.move(300, 500); await p.mouse.down(); await p.mouse.move(150, 500, { steps: 8 }); await p.mouse.up();
   const after = await st(() => window.__binoculars.view.heading);
@@ -133,7 +139,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await p.waitForFunction((e) => window.__binoculars.world.eye > e + 200 && !window.__binoculars.world.busy, eye0, { timeout: 120000 });
   await p.waitForTimeout(500);
   const kept = await st(() => window.__binoculars.world.places.length);
-  check('changing height keeps the loaded place names', overpass === 0 && kept > 500, `${overpass} place-name requests, ${kept} places`);
+  check('changing height keeps the loaded place names', overpass === 0 && kept >= FIXTURE_COUNT, `${overpass} place-name requests, ${kept} places`);
   const vis1 = await st(() => window.__binoculars.world.places.filter((x) => x.visible).length);
   check('raising height above ground lets you see more', vis1 > vis0, `eye ${eye0.toFixed(0)} m: ${vis0} visible; +298 m: ${vis1} visible`);
   const card = await st((h0) => {
