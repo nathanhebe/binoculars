@@ -52,8 +52,8 @@ A static web app with no build step. On start it loads, for 150 km around you:
   arrives, with "Finding more names… n/N" until they are all in (`js/tiles.mjs`); each tile's
   names are saved on the phone for 30 days, so a second look from nearby asks only for tiles it
   has not seen. Hamlets count within 30 km, villages at any distance. Zoomed in, a moment after
-  you stop turning, up to 12 finer tiles (zoom 10 at 2×, 11 at 4×, 12 at 8×) in the direction
-  you face are asked for too, nearest first, and saved the same way;
+  you stop turning, up to 12 finer tiles (zoom 10 at 2×, 11 at 4× and 8×) in the direction
+  you face are asked for too, nearest first, at most 96 from one place, and saved the same way;
 - restaurants, shops, stations and sights from the same map tiles' most detailed level (zoom 14,
   about 2 km a tile; `js/pois.mjs`), only once a chip is on, out to 8 km, and only the tiles
   in the direction you face, nearest first, a moment after you stop turning; saved like the

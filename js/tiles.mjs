@@ -220,9 +220,10 @@ export function tilePlan(lat, lon, rangeKm) {
 
 // Zoomed in, finer tiles name smaller places, so the tiles at FINER_Z[step] inside the wedge
 // heading ± halfDeg out to rangeKm are asked for, nearest first; d is the distance in km at
-// which the wedge first enters each. None at 1×. They stop at zoom 12: hamlets are in the tiles
-// from zoom 11, and zoom 14, the heaviest, is fetched only for the chips (pois.mjs).
-const FINER_Z = { 2: 10, 4: 11, 8: 12 };
+// which the wedge first enters each. None at 1×. They stop at zoom 11, 8× sharing 4×'s tiles:
+// hamlets are in the tiles from zoom 11, zoom 12 added few names for four times the tiles, and
+// zoom 14, the heaviest, is fetched only for the chips (pois.mjs).
+const FINER_Z = { 2: 10, 4: 11, 8: 11 };
 const tileXY = (lat, lon, n) => ({
   x: Math.floor(((lon + 180) / 360) * n),
   y: Math.floor(((1 - Math.asinh(Math.tan((lat * Math.PI) / 180)) / Math.PI) / 2) * n),

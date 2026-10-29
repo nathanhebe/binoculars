@@ -35,7 +35,7 @@ async function open(b, viewport, heading) {
 // labels (js/places.mjs DETAIL); the map tile zoom asked for, zoomed in, to find smaller places
 // (js/tiles.mjs FINER_Z).
 const DETAIL = { 1: [45, 12], 2: [35, 14], 4: [22, 16], 8: [0, 16] };
-const FINER_Z = { 2: 10, 4: 11, 8: 12 };
+const FINER_Z = { 2: 10, 4: 11, 8: 11 };
 const POI = ['food', 'shops', 'travel', 'sights'];
 const tileZ = (path) => Number((/\/(\d+)\/\d+\/\d+\.pbf$/.exec(path) || [])[1]);
 const look = (p, heading, zoom) =>
@@ -231,6 +231,22 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
     check('with Overpass not answering, an empty view still says so and edge hints still show', note && hint && !done,
       JSON.stringify({ note, hint, placesDone: done, overpassHeld: held.length }));
     for (const r of held.splice(0)) await r.abort().catch(() => {});
+    await ctx.close();
+  }
+
+  // 4. Fault: the cap on finer map tiles is per view, so a slow turn zoomed in asks for a fresh
+  // 12 at every 5°: 864 in one turn at 8x from Marbella, against 25 for the first load. Edge: a
+  // full turn at 8x in 5° steps, settling at each, the slowest a user scans.
+  {
+    const { ctx, p, errors: e, asked } = await open(b, { width: 430, height: 860 }, 0);
+    const from = asked.length;
+    for (let h = 0; h < 360; h += 5) {
+      await look(p, h, 8);
+      await p.waitForTimeout(700);
+    }
+    const finerAsked = asked.slice(from).filter((x) => tileZ(x) >= 10);
+    check('a full turn at 8x asks for at most 96 finer map tiles', finerAsked.length >= 1 && finerAsked.length <= 96, `${finerAsked.length} asked`);
+    errors.push(...e);
     await ctx.close();
   }
 

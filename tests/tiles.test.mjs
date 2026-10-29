@@ -13,7 +13,7 @@ test('zoomed in, finer tiles are planned for the view only, nearest first', () =
   const key = (t) => `${t.z}/${t.x}/${t.y}`;
   const at = (heading, half, step) => T.finerPlan(36.5068, -4.886, heading, half, step, 150);
   assert.deepEqual(at(215, 20, 1), [], 'none at 1×');
-  for (const [step, z] of [[2, 10], [4, 11], [8, 12]]) {
+  for (const [step, z] of [[2, 10], [4, 11], [8, 11]]) {
     const plan = at(215, 20 / step + 2, step);
     assert.ok(plan.length > 0, `some at ${step}×`);
     assert.ok(plan.every((t) => t.z === z), `zoom ${z} tiles at ${step}×`);
