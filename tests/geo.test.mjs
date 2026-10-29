@@ -56,10 +56,11 @@ test('a far village close behind a ridge is hidden', () => {
 
 test('a summit is not hidden by the terrain data right beside it', () => {
   // Coarse terrain data often puts the ground just in front of a summit a little above the
-  // summit's tagged height; that must not count as hiding it.
+  // summit's tagged height; that must not count as hiding it. Fault: peaks get only the 150 m
+  // gap other places get. Edge: the high ground starts 250 m out, past 150 m but inside 3%.
   const [lat0, lon0] = [37, -4];
   const summitLat = lat0 + 10000 / 111320;
-  const ground = (lat) => (lat > summitLat - 100 / 111320 ? 1015 : 0);
+  const ground = (lat) => (lat > summitLat - 250 / 111320 ? 1015 : 0);
   assert.equal(lineOfSight(ground, lat0, lon0, 2, summitLat, lon0, 1000, { peak: true }).visible, true);
 });
 
