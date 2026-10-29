@@ -42,12 +42,15 @@ function queries(lat, lon, rangeKm) {
   const near = bbox(lat, lon, Math.min(rangeKm, 40));
   const close = bbox(lat, lon, Math.min(rangeKm, 12));
   return [
+    // Asked first and kept small: towns, cities and nearby peaks with a height are what people
+    // point at.
     `node["place"~"^(city|town)$"]["name"](${far});
-  nwr["place"~"^(island|islet)$"]["name"](${far});
-  node["natural"="cape"]["name"](${far});`,
+  node["natural"~"^(peak|volcano)$"]["name"]["ele"](${near});`,
     // Far peaks only when they have a height: untagged ones are minor and there are thousands.
     `node["natural"~"^(peak|volcano)$"]["name"]["ele"](${far});
-  node["natural"~"^(peak|volcano)$"]["name"](${near});`,
+  node["natural"~"^(peak|volcano)$"]["name"](${near});
+  nwr["place"~"^(island|islet)$"]["name"](${far});
+  node["natural"="cape"]["name"](${far});`,
     `nwr["man_made"="lighthouse"](${far});
   nwr["aeroway"="aerodrome"]["name"]["iata"](${far});
   nwr["historic"~"^(castle|fort|tower)$"]["name"](${near});`,

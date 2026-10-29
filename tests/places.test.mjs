@@ -66,3 +66,19 @@ test('a server that never answers is given up on after 25 s for the next one', a
   assert.equal(new Set(asked.map((a) => a.url)).size, 2);
   assert.ok(asked.every((a) => a.body.includes('[timeout:25]')), 'server told to give up after 25 s too');
 });
+
+// Fault: the first part asked for also carries islands and capes, so on a busy server the
+// towns and peaks people point at wait behind them. Edge: the very first request.
+test('the first part asked for is the small one: towns, cities and nearby peaks', async (t) => {
+  const asked = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, { body }) => {
+    asked.push(decodeURIComponent(body));
+    return { ok: true, json: async () => ({ elements: [] }) };
+  };
+  t.after(() => (globalThis.fetch = realFetch));
+  await loadPlaces(36.5, -4.9, 150, { fresh: true });
+  assert.match(asked[0], /"place"~"\^\(city\|town\)\$"/);
+  assert.match(asked[0], /"natural"~"\^\(peak\|volcano\)\$"/);
+  assert.doesNotMatch(asked[0], /island|cape|village|lighthouse/);
+});
