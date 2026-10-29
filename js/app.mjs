@@ -586,8 +586,10 @@ function labelEl(p) {
   el._p = p;
   const [n, m] = el.children;
   n.textContent = p.name;
-  // A point of interest says what it is first: "Restaurant · 470 m".
+  // A point of interest says what it is first: "Restaurant · 470 m". A place past the curve of
+  // the earth says so before anything else.
   const bits = isPoi(p) ? [p.type, formatKm(p.d)] : [formatKm(p.d)];
+  if (!p.visible && p.blockedBy === 'curve') bits.unshift('Beyond horizon');
   if (p.kind === 'peak' && p.top) bits.push(`${Math.round(p.top)} m`);
   if (p.country && p.country !== world.home?.country) bits.push(p.country);
   m.textContent = bits.join(' · ');
@@ -777,6 +779,12 @@ function drawSkyline(project, W) {
   ctx.setLineDash([]);
 }
 
+// Zoomed in to 2× or more, places past the curve of the earth are drawn greyed and tagged
+// "Beyond horizon" whatever the hidden-places setting: across the sea they are all there is to
+// name. Places behind hills still follow the setting.
+const BEYOND_ZOOM = 2;
+const beyond = (p) => !p.visible && p.blockedBy === 'curve' && view.zoom >= BEYOND_ZOOM - 0.05;
+
 function drawLabels(places, project, W, H, target, reserved, top, bottom, now) {
   const placed = [reserved];
   const drawn = [];
@@ -784,19 +792,21 @@ function drawLabels(places, project, W, H, target, reserved, top, bottom, now) {
   // Points of interest only so far: a few km by eye, further zoomed in.
   const reach = poiRange(view.zoom) * 1000;
   // Hidden places in frame, counted only while nothing is labelled: the empty-view note offers them.
-  let hiddenHere = 0;
-  for (const p of places) {
+  const hiddenHere = { curve: 0, terrain: 0 };
+  // Places beyond the horizon go in a second pass, so they only fill the room left over.
+  for (const later of [false, true]) for (const p of places) {
     if (drawn.length >= max) break;
+    if (beyond(p) !== later) continue;
     if (p.id === target?.id) continue; // the card under the reticle names it
     if (isPoi(p) && p.d > reach) continue;
-    const skip = !p.visible && !settings.showHidden && !asked(p);
+    const skip = !p.visible && !settings.showHidden && !asked(p) && !beyond(p);
     if (skip && drawn.length) continue;
     const pt = project(p.brg, p.angle);
     if (!pt) continue;
     const [sx, sy] = pt;
     if (sx < -20 || sx > W + 20 || sy < top - 40 || sy > bottom) continue;
     if (skip) {
-      hiddenHere++;
+      hiddenHere[p.blockedBy === 'curve' ? 'curve' : 'terrain']++;
       continue;
     }
     const el = labelEl(p);
@@ -859,11 +869,12 @@ function drawLabels(places, project, W, H, target, reserved, top, bottom, now) {
   return { drawn, hiddenHere };
 }
 
-// With nothing labelled this way, say so under the banner, and offer the places hills hide. It
-// waits a moment before showing, so sweeping past a gap stays quiet.
+// With nothing labelled this way, say so under the banner, and offer the hidden places, naming
+// what hides them: the curve of the earth or hills. It waits a moment before showing, so sweeping
+// past a gap stays quiet.
 const EMPTY_DELAY_MS = 400;
 let emptySince = null;
-function updateEmpty(empty, hidden, top, now) {
+function updateEmpty(empty, { curve, terrain }, top, now) {
   const el = $('empty');
   if (!empty) {
     emptySince = null;
@@ -872,9 +883,9 @@ function updateEmpty(empty, hidden, top, now) {
   }
   emptySince ??= now;
   if (now - emptySince < EMPTY_DELAY_MS) return;
-  const text = `Nothing named in sight this way${hidden ? ` · ${hidden} hidden by hills` : ''}`;
+  const text = `Nothing named in sight this way${curve ? ` · ${curve} below the horizon` : ''}${terrain ? ` · ${terrain} behind hills` : ''}`;
   if ($('empty-text').textContent !== text) $('empty-text').textContent = text;
-  $('empty-show').hidden = !hidden;
+  $('empty-show').hidden = !(curve + terrain);
   el.style.top = `${top}px`;
   el.hidden = false;
 }

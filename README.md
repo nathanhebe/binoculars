@@ -13,9 +13,12 @@ full screen.
   the view.
 - The banner at the top names the continent and country you're pointing at, and a country hidden
   beyond the horizon. Labels show places you can actually see; things hidden by hills or the curve
-  of the earth are left out (Settings → *Also show places hidden behind hills* greys them in). When nothing is
-  labelled the way you face, a note under the banner says so and how many places the hills hide,
-  with **Show** to grey them in.
+  of the earth are left out (Settings → *Also show places hidden behind hills* greys them in).
+  Zoomed in to 2× or more, places past the curve of the earth are greyed in anyway, tagged
+  "Beyond horizon" — looking across the sea to Morocco, that is what there is to name — while
+  places behind hills still follow the setting. When nothing is labelled the way you face, a note
+  under the banner says so and how many places are below the horizon or behind hills, with
+  **Show** to grey them in.
 - Point the centre ring at a place and it locks on, with the place named in a card underneath.
   Tap the card, or any label, for its distance, height and links to Wikipedia and Google Maps.
 - The round button in the bottom-right corner zooms: each tap steps 1×, 2×, 4×, 8× and back to
@@ -78,7 +81,8 @@ node --test tests/*.test.mjs
 ```
 
 The browser checks (`tests/browser.e2e.cjs`, `tests/move.e2e.cjs`, `tests/demo.e2e.cjs`,
-`tests/height.e2e.cjs`, `tests/loading.e2e.cjs`, `tests/speed.e2e.cjs`, `tests/poi.e2e.cjs`) need Playwright; see the top of each file.
+`tests/height.e2e.cjs`, `tests/loading.e2e.cjs`, `tests/speed.e2e.cjs`, `tests/poi.e2e.cjs`,
+`tests/zoom.e2e.cjs`) need Playwright; see the top of each file.
 
 Data © OpenStreetMap contributors; map tiles by OpenFreeMap © OpenMapTiles; terrain from Mapzen /
 AWS Terrain Tiles; borders from Natural

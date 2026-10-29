@@ -286,7 +286,8 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await p.goto(BASE + '?lat=36.5068&lon=-4.886&heading=70&pitch=0.3&nocam=1&autostart=1');
   await ready();
   const inland = await emptyNote();
-  check('an empty view says so and counts the places hills hide', !!inland && /^Nothing named in sight this way · \d+ hidden by hills$/.test(inland.text) && inland.show && inland.under, JSON.stringify(inland));
+  // Inland, everything in frame is hidden by hills, none by the curve of the earth.
+  check('an empty view says so and counts the places behind hills', !!inland && /^Nothing named in sight this way · \d+ behind hills$/.test(inland.text) && inland.show && inland.under, JSON.stringify(inland));
   if (inland?.show) await p.click('#empty-show');
   await p.waitForTimeout(400);
   const shown = await st(() => ({
