@@ -2,7 +2,7 @@ import { angleDiff, apparentAngle, compass, distance, horizonAlong, lineOfSight 
 import { Terrain } from './terrain.mjs';
 import { KINDS, dedupe, isMajor, loadMajorPlaces, loadPlaces, nameKey, withMajor } from './places.mjs';
 import { loadTilePlaces } from './tiles.mjs';
-import { loadPoiTile, poiPlan, poiRange } from './pois.mjs';
+import { loadDetails, loadPoiTile, poiPlan, poiRange } from './pois.mjs';
 import { countryAt, loadCountries } from './countries.mjs';
 import { axesFrom, cameraAxes, direction, headingOf, pitchOf, turn } from './orientation.mjs';
 
@@ -710,7 +710,7 @@ function updateCard(target, scan) {
   let lines;
   if (target) {
     const p = target.p;
-    const meta = [KINDS[p.kind].label];
+    const meta = [isPoi(p) ? p.type : KINDS[p.kind].label];
     if (p.kind === 'peak' && p.top) meta.push(`${Math.round(p.top)} m`);
     meta.push(formatKm(p.d));
     lines = [p.name, meta.join(' · '), [p.country, p.continent].filter(Boolean).join(' · ')];
@@ -899,11 +899,15 @@ function updateBanner(target, { land, ahead }) {
 }
 
 // ---------- info card ----------
+let infoFor = null;
 function openInfo(p) {
   // One plain sentence first: "Jebel Musa, a peak in Morocco, Africa — 82 km SW. You can see it
   // from here." The details follow below it.
   $('info-name').textContent = p.name;
-  const kind = KINDS[p.kind].label.split(' /')[0].toLowerCase();
+  const poi = isPoi(p);
+  const kind = (poi ? p.type : KINDS[p.kind].label.split(' /')[0]).toLowerCase();
+  $('info-kind').textContent = poi ? `${KINDS[p.kind].label} · ${p.type}` : KINDS[p.kind].label;
+  $('info-height-row').hidden = poi;
   const where = [p.country, p.continent].filter(Boolean).join(', ');
   const seen = p.visible ? 'You can see it from here.' : p.blockedBy === 'curve' ? 'Below the horizon.' : 'Hidden behind hills.';
   $('info-lead-rest').textContent =
@@ -921,6 +925,25 @@ function openInfo(p) {
   wiki.hidden = !m;
   if (m) wiki.href = `https://${m[1]}.wikipedia.org/wiki/${encodeURIComponent(m[2].replace(/ /g, '_'))}`;
   $('info-map').href = `https://www.google.com/maps/search/?api=1&query=${p.lat.toFixed(5)},${p.lon.toFixed(5)}`;
+  // Opening hours and website arrive a moment later, for a map point of interest only.
+  const site = $('info-website');
+  $('info-hours-row').hidden = true;
+  site.hidden = true;
+  site.removeAttribute('href');
+  infoFor = p.id;
+  if (poi && p.osm)
+    loadDetails(p.osm).then((d) => {
+      if (!d || infoFor !== p.id || $('info').hidden) return;
+      if (d.hours) {
+        $('info-hours').textContent = d.hours;
+        $('info-hours-row').hidden = false;
+      }
+      if (d.website) {
+        site.href = d.website;
+        site.textContent = new URL(d.website).hostname.replace(/^www\./, '');
+        site.hidden = false;
+      }
+    });
   show('settings', false);
   show('info');
 }

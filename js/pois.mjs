@@ -2,6 +2,7 @@
 // the place names. They exist only at the tiles' most detailed zoom (14, about 2 km a tile),
 // so only the tiles in the direction looked at are fetched, nearest first.
 import { loadTile, nameOf } from './tiles.mjs';
+import { ENDPOINTS } from './places.mjs';
 
 const Z = 14;
 
@@ -90,3 +91,51 @@ export function poiPlan(lat, lon, heading, halfDeg, zoom) {
 }
 
 export const loadPoiTile = (t) => loadTile(t, 'pois', ['poi'], poisOf);
+
+// A website tag as an http(s) address safe to link to, or null. OpenStreetMap text is anyone's:
+// it may be javascript:, mailto: or junk. A bare domain gets https; of several, the first.
+export function safeWebsite(s) {
+  if (typeof s !== 'string') return null;
+  let v = s.split(';')[0].trim();
+  if (!v) return null;
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) v = `https://${v}`;
+  let u;
+  try {
+    u = new URL(v);
+  } catch {
+    return null;
+  }
+  if ((u.protocol !== 'http:' && u.protocol !== 'https:') || !u.hostname.includes('.')) return null;
+  return u.href;
+}
+
+// Opening hours and website are not in the map tiles, so they are asked of OpenStreetMap (one
+// small Overpass query) when a place's sheet opens. Kept for the session; a failure is forgotten
+// so the next tap tries again.
+const details = new Map();
+export function loadDetails(osm) {
+  const key = `${osm.type}/${osm.id}`;
+  if (!details.has(key)) details.set(key, fetchDetails(osm).catch(() => (details.delete(key), null)));
+  return details.get(key);
+}
+
+async function fetchDetails({ type, id }) {
+  const body = 'data=' + encodeURIComponent(`[out:json][timeout:10];${type}(${id});out tags;`);
+  let lastErr;
+  for (const url of ENDPOINTS) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+      const el = (await res.json()).elements?.find((e) => e.type === type && e.id === id);
+      const tags = el?.tags ?? {};
+      const hours = typeof tags.opening_hours === 'string' ? tags.opening_hours.slice(0, 200) : null;
+      return { hours, website: safeWebsite(tags.website ?? tags['contact:website']) };
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr;
+}

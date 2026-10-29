@@ -26,7 +26,8 @@ full screen.
   within a few km of you (4 km at 1×, more as you zoom, up to 20 km), each with a coloured dot and
   its type ("Restaurant · 350 m"). A place a chip asks for is greyed in even when a hill hides it,
   so you can see which way it is. Zoomed in to 4× or more, castles, viewpoints, stations and ferry
-  ports show with no chip on. Chips start off and are remembered.
+  ports show with no chip on. Chips start off and are remembered. Tap one of these places for its
+  opening hours and website, when OpenStreetMap has them.
 - On a balcony or tower, raise *Your height above the ground* in Settings.
 - No phone? **Try the demo: Spain → Africa** looks from Marbella across to Morocco; drag or use
   the arrow keys to look around.
@@ -45,7 +46,8 @@ A static web app with no build step. On start it loads, for 150 km around you:
 - restaurants, shops, stations and sights from the same map tiles' most detailed level (zoom 14,
   about 2 km a tile; `js/pois.mjs`), only once a chip is on or you zoom to 4×, and only the tiles
   in the direction you face, nearest first, a moment after you stop turning; saved like the
-  place names for 30 days;
+  place names for 30 days. The tiles hold no opening hours or websites, so tapping one asks the
+  Overpass API for that one place's tags; a website is linked only when it is an http(s) address;
 - lighthouses, capes, castles, marinas and viewpoints, which the map tiles leave out, from the
   public Overpass API in two parts; they appear when it answers and are saved on the phone for
   30 days while you stay within 2 km, and nothing waits for them if it is busy;

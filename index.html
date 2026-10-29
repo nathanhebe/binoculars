@@ -77,13 +77,16 @@
     <button class="close" data-close="info">✕</button>
     <p id="info-lead"><b id="info-name"></b><span id="info-lead-rest"></span></p>
     <dl>
+      <dt>Kind of place</dt><dd id="info-kind"></dd>
       <dt>Distance</dt><dd id="info-distance"></dd>
       <dt>Direction</dt><dd id="info-bearing"></dd>
-      <dt>Height</dt><dd id="info-height"></dd>
+      <div id="info-height-row"><dt>Height</dt><dd id="info-height"></dd></div>
+      <div id="info-hours-row" hidden><dt>Opening hours</dt><dd id="info-hours"></dd></div>
       <dt>Can you see it?</dt><dd id="info-visible"></dd>
     </dl>
     <p class="links"><a id="info-wiki" target="_blank" rel="noopener">Wikipedia</a>
-      <a id="info-map" target="_blank" rel="noopener">Google Maps</a></p>
+      <a id="info-map" target="_blank" rel="noopener">Google Maps</a>
+      <a id="info-website" target="_blank" rel="noopener" hidden></a></p>
   </section>
 
   <section id="settings" class="sheet" hidden>

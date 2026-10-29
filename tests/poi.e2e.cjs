@@ -1,14 +1,16 @@
 // Points of interest: the Food, Shops, Travel and Sights chips above the bottom bar, the places
 // they bring into view, and what the card and the details sheet say about one.
 // Map tiles come from tests/fixtures/ofm (zoom 14 holds a few real places in Marbella's old
-// town, about 400 m north of the viewer); Overpass from tests/fixtures/marbella-overpass.json.
-// Terrain comes from the live server. Run like browser.e2e.cjs:
+// town, about 400 m north of the viewer); Overpass from tests/fixtures/marbella-overpass.json,
+// and one place's opening hours and website from tests/fixtures/poi-details.json. Terrain comes
+// from the live server. Run like browser.e2e.cjs:
 //   NODE_PATH=<dir with playwright installed>/node_modules node tests/poi.e2e.cjs <screenshot dir>
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 const routeTiles = require('./tiles-route.cjs');
 const PLACES = fs.readFileSync(path.join(__dirname, 'fixtures/marbella-overpass.json'), 'utf8');
+const DETAILS = fs.readFileSync(path.join(__dirname, 'fixtures/poi-details.json'), 'utf8');
 const BASE = process.env.BASE_URL || 'http://localhost:8765/';
 const OUT = process.argv[2] || '.';
 const MARBELLA = 'lat=36.5068&lon=-4.886';
@@ -24,7 +26,11 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
 (async () => {
   const b = await chromium.launch({ channel: 'chromium' });
   const ctx = await b.newContext({ viewport: { width: 430, height: 860 }, deviceScaleFactor: 2 });
-  await ctx.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: PLACES }));
+  // One place's details ("out tags;") get the details fixture; the area queries get the places.
+  await ctx.route(/\/interpreter/, (r) => {
+    const q = decodeURIComponent(r.request().postData() || '');
+    r.fulfill({ contentType: 'application/json', body: /out tags;/.test(q) ? DETAILS : PLACES });
+  });
   const tiles = await routeTiles(ctx);
   const p = await ctx.newPage();
   const errors = [];
@@ -95,7 +101,58 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
   check('Food stays on after a reload', cs.find((c) => c.text === 'Food')?.on, JSON.stringify(cs.map((c) => [c.text, c.on])));
   check('and the restaurants come back', await waitFood(true));
 
-  // 3. Food off again hides them.
+  // 3. A restaurant's details: its type, hours, and a website only when it is a real web address.
+  const open = (name) =>
+    attempt(async () => {
+      // Face the place so it is the one under the reticle, then tap its card.
+      await p.evaluate((n) => {
+        const x = window.__binoculars.world.pois?.find((q) => q.name === n);
+        if (x) Object.assign(window.__binoculars.view, { heading: x.brg, pitch: x.angle });
+      }, name);
+      await p.waitForFunction((n) => document.querySelector('#target .t-name')?.textContent === n, name, { timeout: 5000 });
+      await p.click('#target', { timeout: 3000 });
+      await p.waitForFunction(() => !document.getElementById('info').hidden, null, { timeout: 3000 });
+      // Hours and website come from OpenStreetMap after the sheet opens.
+      await p.waitForFunction(() => !document.getElementById('info-hours-row')?.hidden, null, { timeout: 8000 }).catch(() => {});
+      return p.evaluate(() => {
+        const t = (id) => document.getElementById(id)?.textContent ?? '';
+        const site = document.getElementById('info-website');
+        return {
+          lead: t('info-lead'),
+          kind: t('info-kind'),
+          hours: t('info-hours'),
+          links: [...document.querySelectorAll('#info a')].map((a) => [a.textContent, a.getAttribute('href'), a.rel, a.hidden]),
+          siteShown: !!site && !site.closest('[hidden]') && !site.hidden,
+          siteHref: site?.getAttribute('href') ?? null,
+        };
+      });
+    });
+  let info = await open('El Cortijo');
+  check('the sheet says what kind of place it is', typeof info === 'object' && /a restaurant/.test(info.lead) && /Food · Restaurant/.test(info.kind), JSON.stringify(info));
+  check('the sheet shows its opening hours', typeof info === 'object' && info.hours === 'Mo-Su 12:00-23:30', JSON.stringify(info?.hours ?? info));
+  check('a javascript: website is not shown as a link',
+    typeof info === 'object' && !info.siteShown && !info.links.some(([, href]) => /^javascript:/i.test(href || '')), JSON.stringify(info?.links ?? info));
+  await p.screenshot({ path: `${OUT}/poi-sheet-el-cortijo.png` });
+  await p.click('#info .close').catch(() => {});
+  info = await open('Casa del Corregidor');
+  check('a web address is a link that opens in a new tab with rel=noopener',
+    typeof info === 'object' && info.siteShown && info.siteHref === 'https://example.com/casa-del-corregidor' &&
+    info.links.some(([, href, rel]) => href === info.siteHref && /noopener/.test(rel)), JSON.stringify(info?.links ?? info));
+  await p.screenshot({ path: `${OUT}/poi-sheet-corregidor.png` });
+  await p.click('#info .close').catch(() => {});
+
+  // 4. The card under the reticle: point straight at El Cortijo.
+  const cortijo = await p.evaluate(() => window.__binoculars.world.pois?.find((x) => x.name === 'El Cortijo') ?? null);
+  if (cortijo) {
+    await p.evaluate(([brg, angle]) => Object.assign(window.__binoculars.view, { heading: brg, pitch: angle }), [cortijo.brg, cortijo.angle]);
+    await p.waitForFunction(() => /^Restaurant · /.test(document.querySelector('#target .t-meta')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {});
+  }
+  const cardMeta = await p.evaluate(() => [document.querySelector('#target .t-name')?.textContent, document.querySelector('#target .t-meta')?.textContent]);
+  check('the card under the reticle says "Restaurant · distance"', FOOD.includes(cardMeta[0]) && /^Restaurant · \d+ m$/.test(cardMeta[1] || ''), JSON.stringify(cardMeta));
+  await p.screenshot({ path: `${OUT}/poi-card.png` });
+
+  // 5. Food off again hides them.
+  await p.evaluate(() => Object.assign(window.__binoculars.view, { heading: 20, pitch: 1 }));
   r = await attempt(() => chip('Food'));
   check('with Food turned off the restaurants go', r === undefined && (await waitFood(false)), JSON.stringify(await foodLabels()));
   await p.screenshot({ path: `${OUT}/poi-oldtown-food-off.png` });

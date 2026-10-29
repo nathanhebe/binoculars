@@ -217,8 +217,10 @@ body.sheet-open #status, body.sheet-open #cam-off, body.sheet-open #align-hint, 
 }
 .sheet dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 14px 0; }
 .sheet dt { color: var(--muted); }
-.sheet dd { margin: 0; }
-.sheet .links { display: flex; gap: 16px; }
+.sheet dd { margin: 0; overflow-wrap: anywhere; }
+/* A row that can be left out (hours, height) is a div; its dt and dd stay in the grid. */
+.sheet dl > div { display: contents; }
+.sheet .links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .sheet a { color: var(--accent); }
 .sheet label { display: block; margin-top: 14px; }
 .sheet label.row { display: flex; align-items: center; gap: 8px; }

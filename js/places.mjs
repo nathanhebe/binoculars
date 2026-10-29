@@ -2,7 +2,7 @@
 // and mountains bundled with the app to show while those servers answer.
 import { distance } from './geo.mjs';
 
-const ENDPOINTS = [
+export const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',

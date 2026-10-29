@@ -1,0 +1,25 @@
+{
+  "elements": [
+    {
+      "type": "node",
+      "id": 2353754629,
+      "tags": {
+        "amenity": "restaurant",
+        "name": "El Cortijo",
+        "cuisine": "spanish",
+        "opening_hours": "Mo-Su 12:00-23:30",
+        "website": "javascript:alert(1)"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4281025288,
+      "tags": {
+        "amenity": "restaurant",
+        "name": "Casa del Corregidor",
+        "opening_hours": "Mo-Sa 13:00-16:00,20:00-23:00",
+        "website": "https://example.com/casa-del-corregidor"
+      }
+    }
+  ]
+}

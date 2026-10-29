@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { poiPlan, poisOf } from '../js/pois.mjs';
+import { poiPlan, poisOf, safeWebsite } from '../js/pois.mjs';
 
 // Fault: points of interest from the zoom-14 map tiles come through as the wrong category, or
 // things nobody scans a view for (nightclubs, kiosks, bus stops, nameless places) get labels.
@@ -48,4 +48,15 @@ test('only the tiles in the direction looked at are planned, nearest first', () 
   const south = poiPlan(36.5068, -4.886, 190, 20, 1);
   assert.ok(!south.map(key).includes('14/7969/6404'), 'the tile behind the viewer is not planned');
   assert.ok(poiPlan(36.5068, -4.886, 10, 20, 8).length > north.length, 'further when zoomed in');
+});
+
+// Fault: a website tag from OpenStreetMap becomes a link that runs script (javascript:), opens
+// another app (mailto:, data:), or points nowhere. Edge: several values, a bare domain.
+test('only a real web address becomes a website link', () => {
+  for (const bad of ['javascript:alert(1)', 'JavaScript:alert(1)', ' javascript:alert(1)', 'data:text/html,hi', 'mailto:a@b.com', 'ftp://example.com', 'localhost', '', null, undefined, 'https://', 'not a url'])
+    assert.equal(safeWebsite(bad), null, String(bad));
+  assert.equal(safeWebsite('https://example.com/casa'), 'https://example.com/casa');
+  assert.equal(safeWebsite('http://example.com'), 'http://example.com/');
+  assert.equal(safeWebsite('www.example.es'), 'https://www.example.es/', 'a bare domain gets https');
+  assert.equal(safeWebsite('https://a.example.com; https://b.example.com'), 'https://a.example.com/', 'the first of several');
 });
