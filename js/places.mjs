@@ -26,6 +26,11 @@ export const KINDS = {
   viewpoint: { rank: 25, rise: 2, label: 'Viewpoint' },
   marina: { rank: 20, rise: 3, label: 'Marina' },
   hamlet: { rank: 15, rise: 8, label: 'Hamlet' },
+  // Points of interest from the map tiles (pois.mjs), shown by category.
+  food: { rank: 45, rise: 5, label: 'Food' },
+  shops: { rank: 40, rise: 5, label: 'Shop' },
+  travel: { rank: 50, rise: 5, label: 'Travel' },
+  sights: { rank: 50, rise: 8, label: 'Sight' },
 };
 
 function bbox(lat, lon, km) {
@@ -140,7 +145,7 @@ export async function loadMajorPlaces(lat, lon, rangeKm) {
 export const isMajor = (p) => p.id.startsWith('ne');
 
 // Same name ignoring accents and case: Natural Earth writes "Tétouan", OpenStreetMap "Tetouan".
-const nameKey = (s) => s.normalize('NFD').replace(/[\p{M}\p{Cf}]/gu, '').toLowerCase();
+export const nameKey = (s) => s.normalize('NFD').replace(/[\p{M}\p{Cf}]/gu, '').toLowerCase();
 
 // The places plus each bundled one that OpenStreetMap has not also given (same name within
 // 3 km; a place's other spellings in `names` count). A town from the map tiles has no

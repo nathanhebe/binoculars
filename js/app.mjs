@@ -1,7 +1,8 @@
-import { angleDiff, apparentAngle, compass, horizonAlong, lineOfSight } from './geo.mjs';
+import { angleDiff, apparentAngle, compass, distance, horizonAlong, lineOfSight } from './geo.mjs';
 import { Terrain } from './terrain.mjs';
-import { KINDS, dedupe, isMajor, loadMajorPlaces, loadPlaces, withMajor } from './places.mjs';
+import { KINDS, dedupe, isMajor, loadMajorPlaces, loadPlaces, nameKey, withMajor } from './places.mjs';
 import { loadTilePlaces } from './tiles.mjs';
+import { loadPoiTile, poiPlan, poiRange } from './pois.mjs';
 import { countryAt, loadCountries } from './countries.mjs';
 import { axesFrom, cameraAxes, direction, headingOf, pitchOf, turn } from './orientation.mjs';
 
@@ -15,10 +16,13 @@ const params = new URLSearchParams(location.search);
 
 // ---------- settings (per viewer, survives reloads) ----------
 const SETTINGS_KEY = 'binoculars:settings:v1';
+// The point-of-interest categories, each a chip above the controls; all off at first.
+const CATS = ['food', 'shops', 'travel', 'sights'];
 const settings = { hag: 2, fov: 64, showHidden: false, showSkyline: true, calibHeading: 0, calibPitch: 0 };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {});
 } catch {}
+settings.cats = Object.fromEntries(CATS.map((c) => [c, settings.cats?.[c] === true]));
 function saveSettings() {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -27,7 +31,8 @@ function saveSettings() {
 
 // ---------- world state ----------
 const terrain = new Terrain();
-const world = { lat: null, lon: null, eye: 0, places: [], horizon: [], skylineCountry: new Map(), home: null, gen: 0, placesDone: false };
+// pois: points of interest measured from here (computePois), like places.
+const world = { lat: null, lon: null, eye: 0, places: [], pois: [], horizon: [], skylineCountry: new Map(), home: null, gen: 0, placesDone: false };
 const view = {
   sensor: false, // true once real orientation events arrive
   axes: axesFrom(0, 0),
@@ -107,7 +112,7 @@ async function start(fixed) {
   }
   await loadWorld(pos.lat, pos.lon);
   show('loading', false);
-  ['banner', 'reticle', 'hud'].forEach((id) => show(id));
+  ['banner', 'reticle', 'hud', 'chips'].forEach((id) => show(id));
   setZoom(1);
   if (!fixed) watchMoves();
   requestAnimationFrame(frame);
@@ -213,7 +218,10 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     // After a move, show the places already loaded from the new position until fresh ones arrive.
     // The bundled ones are for the old position; this load brings its own.
     const prev = (world.items ?? []).filter((x) => !isMajor(x));
-    if (moved) world.places = [];
+    if (moved) {
+      world.places = [];
+      world.pois = [];
+    }
     world.items = prev;
     world.placesDone = false;
     // Place names come from a slow public server, so they stream in after the view is up.
@@ -288,6 +296,8 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     world.eye = terrain.elev(lat, lon) + settings.hag;
     world.home = countryAt(lat, lon);
     await computeHorizon();
+    world.measuredGen = gen;
+    computePois();
     ready();
   } finally {
     world.busy = false;
@@ -329,6 +339,114 @@ async function computePlaces(places, gen) {
   // A newer part or a height change may have finished first; only the latest list wins.
   if (gen === world.gen && places === world.items) world.places = unique;
 }
+
+// ---------- points of interest: restaurants, shops, stations, sights ----------
+// They come from the most detailed map tiles, about 2 km each, so only the tiles in the
+// direction looked at are fetched, nearest first, once the view has settled for a moment.
+const POI_WORKERS = 2;
+const POI_WAIT_MS = 350;
+const POI_MAX_KM = poiRange(10);
+const CAT_COLOURS = { food: '#ff8a5c', shops: '#d08cff', travel: '#5cc8ff', sights: '#7ee08a' };
+const isPoi = (p) => CATS.includes(p.kind);
+// A kind of place the chips ask for is labelled (greyed) and lockable even when terrain hides
+// it: the elevation data is too coarse to judge a few hundred metres of town, and the point
+// of asking for restaurants is to find which way they are.
+const asked = (p) => isPoi(p) && settings.cats[p.kind];
+const poiTiles = new Map(); // 'x/y' → 'loading' or 'done'
+const poiRaw = new Map(); // id → point of interest as the tile gave it
+const poiLoad = { key: '', timer: null, queue: [], busy: 0 };
+
+// Distance, direction, angle and whether hills or the curve hide it, as computePlaces does.
+function measurePoi(p) {
+  const k = KINDS[p.kind];
+  const top = terrain.elev(p.lat, p.lon) + k.rise;
+  const los = lineOfSight(terrain.elev, world.lat, world.lon, world.eye, p.lat, p.lon, top);
+  const c = countryAt(p.lat, p.lon);
+  return { ...p, ...los, top, country: c?.country ?? null, continent: c?.continent ?? null, score: k.rank - Math.min(25, los.d / 200) };
+}
+const nearPoi = (p) => distance(world.lat, world.lon, p.lat, p.lon) <= POI_MAX_KM * 1000;
+// Every loaded point of interest, measured again from here (after a move or a height change).
+function computePois() {
+  world.pois = [...poiRaw.values()].filter(nearPoi).map(measurePoi);
+}
+function addPois(list) {
+  if (world.measuredGen !== world.gen) return; // terrain for a new position is loading; computePois follows
+  const have = new Set(world.pois.map((p) => p.id));
+  const fresh = list.filter((p) => !have.has(p.id) && nearPoi(p)).map(measurePoi);
+  if (fresh.length) world.pois = [...world.pois, ...fresh];
+}
+
+// Called each frame; plans again when the heading moves 5°, the zoom or the chips change.
+function planPois(heading, halfDeg) {
+  const zoom = view.zoomTarget;
+  const wanted = CATS.some((c) => settings.cats[c]) || zoom >= 4;
+  const key = wanted && world.measuredGen === world.gen ? `${world.gen}|${Math.round(heading / 5)}|${zoom}` : '';
+  if (key === poiLoad.key) return;
+  poiLoad.key = key;
+  clearTimeout(poiLoad.timer);
+  poiLoad.queue = [];
+  if (!key) return;
+  poiLoad.timer = setTimeout(() => {
+    poiLoad.queue = poiPlan(world.lat, world.lon, heading, halfDeg / zoom + 5, zoom).filter((t) => !poiTiles.has(`${t.x}/${t.y}`));
+    for (let i = poiLoad.busy; i < POI_WORKERS; i++) poiWorker();
+  }, POI_WAIT_MS);
+}
+async function poiWorker() {
+  poiLoad.busy++;
+  try {
+    while (poiLoad.queue.length) {
+      const t = poiLoad.queue.shift();
+      const k = `${t.x}/${t.y}`;
+      if (poiTiles.has(k)) continue;
+      poiTiles.set(k, 'loading');
+      try {
+        const list = await loadPoiTile(t);
+        for (const p of list) poiRaw.set(p.id, p);
+        poiTiles.set(k, 'done');
+        addPois(list);
+      } catch (err) {
+        console.warn(err);
+        poiTiles.delete(k); // asked for again on the next look this way
+      }
+    }
+  } finally {
+    poiLoad.busy--;
+  }
+}
+
+// Places plus the points of interest the chips ask for (and, zoomed in, landmarks such as
+// castles and ferry ports), best first. A point of interest that is also a named place within
+// 500 m is left to the place. Worked out again only when one of those changes.
+const shown = { places: null, pois: null, key: '', list: [] };
+function shownPlaces() {
+  const landmarks = view.zoomTarget >= 4;
+  const key = `${CATS.map((c) => +settings.cats[c]).join('')}${+landmarks}`;
+  if (shown.places === world.places && shown.pois === world.pois && shown.key === key) return shown.list;
+  const byName = new Map();
+  for (const p of world.places) {
+    const k = nameKey(p.name);
+    byName.set(k, [...(byName.get(k) ?? []), p]);
+  }
+  const pois = world.pois.filter(
+    (p) =>
+      (settings.cats[p.kind] || (landmarks && p.landmark)) &&
+      !(byName.get(nameKey(p.name)) ?? []).some((q) => distance(p.lat, p.lon, q.lat, q.lon) < 500)
+  );
+  const list = pois.length ? [...world.places, ...pois].sort((a, b) => b.score - a.score) : world.places;
+  Object.assign(shown, { places: world.places, pois: world.pois, key, list });
+  return list;
+}
+
+function renderChips() {
+  for (const b of document.querySelectorAll('#chips button')) b.setAttribute('aria-pressed', String(settings.cats[b.dataset.cat]));
+}
+for (const b of document.querySelectorAll('#chips button'))
+  b.addEventListener('click', () => {
+    settings.cats[b.dataset.cat] = !settings.cats[b.dataset.cat];
+    saveSettings();
+    renderChips();
+  });
+renderChips();
 
 function skylineAt(az) {
   const n = world.horizon.length;
@@ -443,7 +561,8 @@ function labelEl(p) {
   el._p = p;
   const [n, m] = el.children;
   n.textContent = p.name;
-  const bits = [formatKm(p.d)];
+  // A point of interest says what it is first: "Restaurant · 470 m".
+  const bits = isPoi(p) ? [p.type, formatKm(p.d)] : [formatKm(p.d)];
   if (p.kind === 'peak' && p.top) bits.push(`${Math.round(p.top)} m`);
   if (p.country && p.country !== world.home?.country) bits.push(p.country);
   m.textContent = bits.join(' · ');
@@ -457,7 +576,8 @@ function labelEl(p) {
   const nw = ctx.measureText(p.name).width;
   ctx.font = `11px ${FONT}`;
   const mw = ctx.measureText(m.textContent.toUpperCase()).width + m.textContent.length * 0.66;
-  el._w = Math.ceil(Math.max(nw, mw)) + 10;
+  // A point of interest's name has a coloured dot before it (style.css), 8 px and a 5 px gap.
+  el._w = Math.ceil(Math.max(nw + (isPoi(p) ? 13 : 0), mw)) + 10;
   el._h = Math.ceil(t.size * 1.2) + 14 + 4;
   return el;
 }
@@ -487,11 +607,17 @@ function frame() {
   const now = performance.now();
   // Keep labels below the banner, however tall it is on this phone.
   const top = $('banner').getBoundingClientRect().bottom + 8;
+  // ...and their dots above the chips.
+  const chips = $('chips');
+  const bottom = chips.hidden ? H - 70 : Math.min(H - 70, chips.getBoundingClientRect().top - 8);
   if (settings.showSkyline || view.aligning) drawSkyline(project, W);
-  const target = pickTarget(project, W, H, now);
+  // Half the width of the view in degrees at 1×, for which map tiles to ask for.
+  planPois(heading, (Math.atan(W / 2 / (f / view.zoom)) * 180) / Math.PI);
+  const places = shownPlaces();
+  const target = pickTarget(places, project, W, H, now);
   const cardY = placeReticle(target, W, H);
   // Keep labels off the card under the reticle.
-  const { drawn, hiddenHere } = drawLabels(project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66], top, now);
+  const { drawn, hiddenHere } = drawLabels(places, project, W, H, target, [W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66], top, bottom, now);
   updateEmpty(!drawn.length && !target && world.placesDone, hiddenHere, top, now);
   updateReadout(heading, pitch);
   if (world.horizon.length) {
@@ -510,16 +636,17 @@ const lock = { id: null, p: null, pt: null, since: 0, seen: 0 };
 // The visible place whose dot is nearest the centre, within LOCK_PX (a little more when zoomed
 // in, though less in degrees). A target is kept for LOCK_HOLD_MS unless another is clearly
 // closer, so a shaking hand does not make it flicker between two.
-function pickTarget(project, W, H, now) {
+function pickTarget(places, project, W, H, now) {
   const r = LOCK_PX * Math.sqrt(view.zoom);
+  const reach = poiRange(view.zoom) * 1000;
   let best = null;
   let bestPt = null;
   let bestD = Infinity;
   let cur = null;
   let curPt = null;
   let curD = Infinity;
-  for (const p of world.places) {
-    if (!p.visible) continue;
+  for (const p of places) {
+    if (!(p.visible || asked(p)) || (isPoi(p) && p.d > reach)) continue;
     const pt = project(p.brg, p.angle);
     if (!pt) continue;
     const d = Math.hypot(pt[0] - W / 2, pt[1] - H / 2);
@@ -624,21 +751,24 @@ function drawSkyline(project, W) {
   ctx.setLineDash([]);
 }
 
-function drawLabels(project, W, H, target, reserved, top, now) {
+function drawLabels(places, project, W, H, target, reserved, top, bottom, now) {
   const placed = [reserved];
   const drawn = [];
   const max = Math.round(MAX_LABELS * view.zoom);
+  // Points of interest only so far: a few km by eye, further zoomed in.
+  const reach = poiRange(view.zoom) * 1000;
   // Hidden places in frame, counted only while nothing is labelled: the empty-view note offers them.
   let hiddenHere = 0;
-  for (const p of world.places) {
+  for (const p of places) {
     if (drawn.length >= max) break;
     if (p.id === target?.id) continue; // the card under the reticle names it
-    const skip = !p.visible && !settings.showHidden;
+    if (isPoi(p) && p.d > reach) continue;
+    const skip = !p.visible && !settings.showHidden && !asked(p);
     if (skip && drawn.length) continue;
     const pt = project(p.brg, p.angle);
     if (!pt) continue;
     const [sx, sy] = pt;
-    if (sx < -20 || sx > W + 20 || sy < top - 40 || sy > H - 70) continue;
+    if (sx < -20 || sx > W + 20 || sy < top - 40 || sy > bottom) continue;
     if (skip) {
       hiddenHere++;
       continue;
@@ -676,7 +806,7 @@ function drawLabels(project, W, H, target, reserved, top, now) {
   }
   ctx.restore();
   for (const { p, sx, sy } of drawn) {
-    ctx.fillStyle = p.visible ? '#ffcf4a' : '#8a93a6';
+    ctx.fillStyle = p.visible ? (CAT_COLOURS[p.kind] ?? '#ffcf4a') : '#8a93a6';
     ctx.beginPath();
     ctx.arc(sx, sy, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -919,6 +1049,7 @@ $('hag').addEventListener('change', async () => {
       world.eye = terrain.elev(world.lat, world.lon) + settings.hag;
       await computeHorizon();
       await computePlaces(world.items, world.gen);
+      computePois();
     }
   } finally {
     world.busy = false;

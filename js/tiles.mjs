@@ -149,7 +149,7 @@ const latinOnly = (s) => /^[\p{Script=Latin}\p{N}\p{P}\p{Zs}'’\-]+$/u.test(s);
 
 // English where the map has it, else a name in Latin script: Tangier's local name mixes three
 // scripts. Tiles fill name_en with the local name when there is no English one.
-function nameOf(t) {
+export function nameOf(t) {
   for (const n of [t['name:en'], t.name_en, t['name:latin'], t.name])
     if (typeof n === 'string' && n.trim() && (n === t['name:en'] || latinOnly(n))) return n.trim().slice(0, 80);
   return typeof t.name === 'string' && t.name.trim() ? t.name.trim().slice(0, 80) : null;
@@ -248,14 +248,14 @@ function tileUrl({ z, x, y }) {
 
 // Each tile's places are saved on the phone for 30 days, so a second look from nearby needs no
 // network. Kept by the app, not the service worker, which never stores place names. Bump the
-// name here and in sw.js's KEEP if what placesOf returns changes, so old entries are deleted.
+// name here and in sw.js's KEEP if what placesOf (or pois.mjs's poisOf) returns changes, so old
+// entries are deleted.
 const SAVED = 'binoculars-places-v1';
 const SAVED_MAX_AGE = 30 * 24 * 3600 * 1000;
-const savedKey = ({ z, x, y }) => `places/${z}/${x}/${y}`;
 
-async function readSaved(t) {
+async function readSaved(key) {
   try {
-    const hit = await (await caches.open(SAVED)).match(savedKey(t));
+    const hit = await (await caches.open(SAVED)).match(key);
     const body = hit && (await hit.json());
     return body && Date.now() - body.t < SAVED_MAX_AGE && Array.isArray(body.places) ? body.places : null;
   } catch {
@@ -263,23 +263,42 @@ async function readSaved(t) {
   }
 }
 
-async function save(t, places) {
+async function save(key, places) {
   try {
     const body = JSON.stringify({ t: Date.now(), places });
-    await (await caches.open(SAVED)).put(savedKey(t), new Response(body, { headers: { 'Content-Type': 'application/json' } }));
+    await (await caches.open(SAVED)).put(key, new Response(body, { headers: { 'Content-Type': 'application/json' } }));
   } catch {
     // Storage full or blocked: fine, it is fetched again next time.
   }
 }
 
-async function fetchTile(t) {
-  const saved = await readSaved(t);
-  if (saved) return saved;
-  const res = await get(await tileUrl(t));
-  const places = placesOf(decodeTile(new Uint8Array(await res.arrayBuffer()), t.z, t.x, t.y, LAYERS));
-  save(t, places);
-  return places;
+// OpenFreeMap asks for at most four requests at once; place names and points of interest share them.
+let active = 0;
+const waiting = [];
+async function limited(fn) {
+  while (active >= PARALLEL) await new Promise((go) => waiting.push(go));
+  active++;
+  try {
+    return await fn();
+  } finally {
+    active--;
+    waiting.shift()?.();
+  }
 }
+
+// One tile's features from the named layers, turned into a list by convert and saved under
+// `${what}/z/x/y`.
+export async function loadTile(t, what, layers, convert) {
+  const key = `${what}/${t.z}/${t.x}/${t.y}`;
+  const saved = await readSaved(key);
+  if (saved) return saved;
+  const buf = await limited(async () => new Uint8Array(await (await get(await tileUrl(t))).arrayBuffer()));
+  const out = convert(decodeTile(buf, t.z, t.x, t.y, layers));
+  save(key, out);
+  return out;
+}
+
+const fetchTile = (t) => loadTile(t, 'places', LAYERS, placesOf);
 
 // Resolves with every place found; calls onPart(placesSoFar, tilesDone, tilesTotal, tilesFailed)
 // as each tile lands. Throws only if no tile loaded.
