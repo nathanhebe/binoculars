@@ -545,7 +545,7 @@ function updateThere(places, heading, half) {
       .slice(0, THERE_MAX);
   }
   // Whether each is in view is in the key: a height change keeps names and distances.
-  const key = items.map((p) => `${p.id}|${Math.round(p.d)}|${p.visible ? 'v' : p.blockedBy}`).join(',');
+  const key = `${innerHeight}|${$('chip-hint').hidden}:` + items.map((p) => `${p.id}|${Math.round(p.d)}|${p.visible ? 'v' : p.blockedBy}`).join(',');
   if (key === thereKey) return;
   thereKey = key;
   el.replaceChildren(
@@ -556,7 +556,11 @@ function updateThere(places, heading, half) {
       return b;
     }),
   );
-  el.hidden = !items.length;
+  el.hidden = false;
+  // The furthest rows go if the list would reach up over the card under the reticle: held
+  // sideways there is room for none, and the labels name what is there instead.
+  while (el.lastChild && el.getBoundingClientRect().top < innerHeight / 2 + 98) el.lastChild.remove();
+  el.hidden = !el.childElementCount;
 }
 
 const CAT_WORDS = { food: 'food places', shops: 'shops', travel: 'travel stops', sights: 'sights', stay: 'places to stay' };

@@ -112,6 +112,31 @@ const z14 = (asked) => asked.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t));
   check('after a height change a listed place\'s sheet says what is visible from the new height',
     flipped && /^Yes/.test(sheet) === flipped.visible, JSON.stringify({ flipped, sheet, before, after }));
 
+  // 5. Fault: on a phone held sideways, or a short one, the list reaches up over the reticle and
+  // the card under it, and the labels are pushed above it off the top. Edge: 390 px tall, where
+  // there is no room for even one row, and 667 px, where there is room for a few.
+  for (const [w, h] of [[844, 390], [375, 667]]) {
+    const c = await b.newContext({ viewport: { width: w, height: h } });
+    await c.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: PLACES }));
+    await routeTiles(c);
+    const q = await c.newPage();
+    q.on('pageerror', (e) => errors.push(String(e)));
+    await q.goto(`${BASE}?lat=36.5068&lon=-4.886&heading=274&pitch=0.3&nocam=1&autostart=1`);
+    await q.waitForFunction(() => window.__binoculars?.world.placesDone, null, { timeout: 240000, polling: 500 });
+    await q.evaluate(() => Object.assign(window.__binoculars.view, { zoomTarget: 2, zoom: 2 }));
+    await q.waitForFunction(() => window.__binoculars.world.pois.length > 0, null, { timeout: 30000, polling: 250 }).catch(() => {});
+    await q.waitForTimeout(2500);
+    const lay = await q.evaluate(() => {
+      const box = (id) => { const el = document.getElementById(id); const r = el.getBoundingClientRect(); return !el.hidden && r.height > 0 ? r.toJSON() : null; };
+      return { there: box('there'), reticle: box('reticle'), target: box('target'), labels: document.querySelectorAll('.label.on:not([hidden])').length };
+    });
+    const over = (a, b2) => !!(a && b2 && a.top < b2.bottom && b2.top < a.bottom && a.left < b2.right && b2.left < a.right);
+    check(`at ${w}x${h} the list stays off the reticle and its card, and places are labelled`,
+      !over(lay.there, lay.reticle) && !over(lay.there, lay.target) && lay.labels > 0, JSON.stringify(lay));
+    await q.screenshot({ path: `${OUT}/there-${w}x${h}.png` });
+    await c.close();
+  }
+
   check('no page errors', errors.length === 0, errors.join(' | '));
   await b.close();
   const failed = results.filter((r) => !r).length;
