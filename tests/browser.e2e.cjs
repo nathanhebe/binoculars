@@ -145,6 +145,10 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     wiki: document.getElementById('info-wiki').hidden ? null : document.getElementById('info-wiki').href,
   }));
   check('tapping a label opens its details', info.open && info.name === 'Jebel Musa' && /km/.test(info.dist) && /google/.test(info.map), JSON.stringify(info));
+  // Fault: the details opened on a grid of facts with no plain answer. They lead with one
+  // sentence: what and where it is, how far and which way, and whether you can see it.
+  const lead = await st(() => document.getElementById('info-lead')?.textContent ?? null);
+  check('the details lead with one plain sentence', lead === 'Jebel Musa, a peak in Morocco, Africa — 82 km SW. You can see it from here.', JSON.stringify(lead));
   await p.screenshot({ path: `${OUT}/3-info.png` });
   // Fault: the sheet was see-through and the bottom bar showed round it, so the page read as
   // two layers at once. An open sheet is solid and the controls step out of the way.
@@ -276,6 +280,15 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     note: !document.getElementById('empty')?.hidden,
   }));
   check('Show turns hidden places on, and the note goes', shown.on && shown.saved && shown.labels > 0 && !shown.note, JSON.stringify(shown));
+  // Edge of the lead sentence: a place you cannot see says what hides it.
+  const hiddenLead = await st(() => {
+    const el = document.querySelector('.label.hidden-place:not([hidden])');
+    if (!el) return null;
+    el.click();
+    return { lead: document.getElementById('info-lead')?.textContent ?? null, curve: el._p.blockedBy === 'curve' };
+  });
+  check('a hidden place\'s details say what hides it', !!hiddenLead?.lead && hiddenLead.lead.endsWith(hiddenLead.curve ? ' Below the horizon.' : ' Hidden behind hills.') && !/You can see it/.test(hiddenLead.lead), JSON.stringify(hiddenLead));
+  if (hiddenLead) await p.click('#info .close');
   await st(() => {
     window.__binoculars.settings.showHidden = false;
     const s = JSON.parse(localStorage.getItem('binoculars:settings:v1') || '{}');

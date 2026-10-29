@@ -731,9 +731,14 @@ function updateBanner(target, { land, ahead }) {
 
 // ---------- info card ----------
 function openInfo(p) {
+  // One plain sentence first: "Jebel Musa, a peak in Morocco, Africa — 82 km SW. You can see it
+  // from here." The details follow below it.
   $('info-name').textContent = p.name;
-  const kind = KINDS[p.kind].label;
-  $('info-kind').textContent = [kind, p.country].filter(Boolean).join(' · ');
+  const kind = KINDS[p.kind].label.split(' /')[0].toLowerCase();
+  const where = [p.country, p.continent].filter(Boolean).join(', ');
+  const seen = p.visible ? 'You can see it from here.' : p.blockedBy === 'curve' ? 'Below the horizon.' : 'Hidden behind hills.';
+  $('info-lead-rest').textContent =
+    `, ${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}${where ? ` in ${where}` : ''} — ${formatKm(p.d)} ${compass(p.brg)}. ${seen}`;
   $('info-distance').textContent = formatKm(p.d);
   $('info-bearing').textContent = `${compass(p.brg)} (${Math.round(p.brg)}°)`;
   $('info-height').textContent = `${Math.round(p.top)} m above sea level`;
