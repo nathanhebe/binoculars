@@ -119,8 +119,13 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   let overpass = 0;
   const countOverpass = (r) => /\/interpreter/.test(r.url()) && overpass++;
   p.on('request', countOverpass);
+  // Fault: a label kept the place it was first drawn with, so after a height change tapping it
+  // still gave the old answer. Edge: a place that only comes into view from higher up.
+  await p.check('#show-hidden');
+  await p.waitForTimeout(300);
   const eye0 = await st(() => window.__binoculars.world.eye);
   const vis0 = await st(() => window.__binoculars.world.places.filter((x) => x.visible).length);
+  const hidden0 = await st(() => window.__binoculars.world.places.filter((x) => !x.visible).map((x) => x.id));
   await p.$eval('#hag', (el) => { el.value = 300; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); });
   await p.waitForFunction((e) => window.__binoculars.world.eye > e + 200 && !window.__binoculars.world.busy, eye0, { timeout: 120000 });
   await p.waitForTimeout(500);
@@ -128,6 +133,20 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   check('changing height keeps the loaded place names', overpass === 0 && kept > 500, `${overpass} place-name requests, ${kept} places`);
   const vis1 = await st(() => window.__binoculars.world.places.filter((x) => x.visible).length);
   check('raising height above ground lets you see more', vis1 > vis0, `eye ${eye0.toFixed(0)} m: ${vis0} visible; +298 m: ${vis1} visible`);
+  const card = await st((h0) => {
+    for (const x of window.__binoculars.world.places) {
+      if (!x.visible || !h0.includes(x.id)) continue;
+      const el = [...document.querySelectorAll('.label:not([hidden]):not(.hidden-place)')].find((l) => l.querySelector('.n').textContent === x.name);
+      if (!el) continue;
+      el.click();
+      return `${x.name}: ${document.getElementById('info-visible').textContent}`;
+    }
+    return 'no place on screen came into view';
+  }, hidden0);
+  check('tapping a place that came into view says it is visible', /: Yes/.test(card), card);
+  await p.click('#info .close');
+  await p.click('#settings-btn');
+  await p.uncheck('#show-hidden');
   p.off('request', countOverpass);
   await st((s) => localStorage.setItem('binoculars:places:v1', s), saved);
   await p.$eval('#fov', (el) => { el.value = 80; el.dispatchEvent(new Event('input')); });

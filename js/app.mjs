@@ -337,26 +337,29 @@ function formatKm(m) {
 
 function labelEl(p) {
   let el = labelEls.get(p.id);
-  if (el) return el;
-  el = document.createElement('button');
-  el.className = `label k-${p.kind}`;
-  const n = document.createElement('span');
-  n.className = 'n';
+  // A move or a height change recomputes every place, so refresh the text and what a tap opens.
+  if (el && el._p === p) return el;
+  if (!el) {
+    el = document.createElement('button');
+    el.className = `label k-${p.kind}`;
+    const n = document.createElement('span');
+    n.className = 'n';
+    el.append(n, Object.assign(document.createElement('span'), { className: 'm' }));
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (!dragMoved) openInfo(el._p);
+    });
+    $('labels').append(el);
+    labelEls.set(p.id, el);
+  }
+  el._p = p;
+  const [n, m] = el.children;
   n.textContent = p.name;
-  const m = document.createElement('span');
-  m.className = 'm';
   const bits = [formatKm(p.d)];
   if (p.kind === 'peak' && p.top) bits.push(`${Math.round(p.top)} m`);
   if (p.country && p.country !== world.home?.country) bits.push(p.country);
   m.textContent = bits.join(' · ');
-  el.append(n, m);
-  el.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    if (!dragMoved) openInfo(p);
-  });
-  $('labels').append(el);
   el._w = Math.max(64, Math.max(p.name.length * 8.2, m.textContent.length * 6.4) + 18);
-  labelEls.set(p.id, el);
   return el;
 }
 
