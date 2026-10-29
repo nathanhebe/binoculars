@@ -31,7 +31,7 @@ function saveSettings() {
 // ---------- world state ----------
 const terrain = new Terrain();
 // pois: points of interest measured from here (computePois), like places.
-const world = { lat: null, lon: null, eye: 0, places: [], pois: [], horizon: [], skylineCountry: new Map(), home: null, gen: 0, placesDone: false };
+const world = { lat: null, lon: null, eye: 0, places: [], pois: [], horizon: [], skylineCountry: new Map(), home: null, gen: 0, placesDone: false, tilesDone: false };
 const view = {
   sensor: false, // true once real orientation events arrive
   axes: axesFrom(0, 0),
@@ -225,6 +225,7 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     }
     world.items = prev;
     world.placesDone = false;
+    world.tilesDone = false;
     // Place names come from a slow public server, so they stream in after the view is up.
     let ready;
     const terrainReady = new Promise((r) => (ready = r));
@@ -265,7 +266,11 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
       }
     );
     // The line tracks the map tiles only: once they are in it goes, whatever Overpass is doing.
-    tilesDone.then(() => gen === world.gen && then(() => placeStatus(named.failed ? 'failed' : null)));
+    // The edge hints and the empty-view note wait for the tiles only, not Overpass.
+    tilesDone.then(() => gen === world.gen && then(() => {
+      world.tilesDone = true;
+      placeStatus(named.failed ? 'failed' : null);
+    }));
     const extrasDone = loadPlaces(lat, lon, RANGE_KM, {
       fresh,
       onPart: (items, done, total, failed) => {
@@ -728,7 +733,7 @@ function frame() {
   const hints = updateEdgeHints(places, heading, half, target, Math.min(cardY + 70, bottom - 30));
   // Keep labels off the card under the reticle and off the edge hints.
   const { drawn, hiddenHere } = drawLabels(places, project, W, H, target, [[W / 2 - 140, cardY - 4, W / 2 + 140, cardY + 66], ...hints], top, bottom, now);
-  updateEmpty(!drawn.length && !target && world.placesDone, hiddenHere, top, now);
+  updateEmpty(!drawn.length && !target && world.tilesDone, hiddenHere, top, now);
   updateChipHint(heading, half, now);
   updateReadout(heading, pitch);
   if (world.horizon.length) {
@@ -980,7 +985,7 @@ function updateEmpty(empty, { curve, terrain }, top, now) {
 const HINT_REACH_DEG = 45;
 function updateEdgeHints(places, heading, half, target, y) {
   const best = { left: null, right: null };
-  if (!target && world.placesDone && !view.aligning) {
+  if (!target && world.tilesDone && !view.aligning) {
     const { minScore } = detailFor(view.zoom);
     for (const p of places) {
       if (isPoi(p) || p.score < minScore) continue;

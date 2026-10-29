@@ -212,6 +212,28 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
     await ctx.close();
   }
 
+  // 3. Fault: the edge hints and the empty-view note wait until Overpass has answered too, and
+  // Overpass is often down for minutes, so neither ever shows. Edge: Overpass never answers;
+  // the map tiles do. Inland at 70° everything in frame is behind hills (browser.e2e.cjs).
+  {
+    const ctx = await b.newContext({ viewport: { width: 430, height: 860 }, deviceScaleFactor: 2 });
+    const held = [];
+    await ctx.route(/\/interpreter/, (r) => held.push(r));
+    await routeTiles(ctx);
+    const p = await ctx.newPage();
+    p.on('pageerror', (e) => errors.push(String(e)));
+    await p.goto(`${BASE}?${MARBELLA}&heading=70&pitch=0.3&nocam=1&autostart=1`);
+    await p.waitForFunction(() => !document.getElementById('hud').hidden && document.getElementById('status').hidden, null, { timeout: 240000, polling: 500 });
+    const note = await p.waitForFunction(() => !document.getElementById('empty').hidden, null, { timeout: 8000 }).then(() => true, () => false);
+    await look(p, 180, 1);
+    const hint = await p.waitForFunction(() => [...document.querySelectorAll('.edge-hint')].some((el) => !el.hidden), null, { timeout: 8000 }).then(() => true, () => false);
+    const done = await p.evaluate(() => window.__binoculars.world.placesDone);
+    check('with Overpass not answering, an empty view still says so and edge hints still show', note && hint && !done,
+      JSON.stringify({ note, hint, placesDone: done, overpassHeld: held.length }));
+    for (const r of held.splice(0)) await r.abort().catch(() => {});
+    await ctx.close();
+  }
+
   check('no page errors', errors.length === 0, errors.join(' | '));
   await b.close();
   console.log(`\n${results.filter(Boolean).length} of ${results.length} checks passed`);
