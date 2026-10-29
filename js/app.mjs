@@ -432,7 +432,7 @@ const isPoi = (p) => CATS.includes(p.kind);
 // Zoomed in to 2× or more with every chip off, every kind is shown: zooming on a stretch of
 // coast is itself asking what is there. Any chip on chooses the kinds, at any zoom.
 const AUTO_ZOOM = 2;
-const autoPois = () => view.zoomTarget >= AUTO_ZOOM && !CATS.some((c) => settings.cats[c]);
+const autoPois = () => view.zoomTarget >= AUTO_ZOOM - 0.05 &&!CATS.some((c) => settings.cats[c]);
 const kindShown = (kind) => settings.cats[kind] || (autoPois() && CATS.includes(kind));
 // A kind of place being shown is labelled (greyed) and lockable even when terrain hides
 // it: the elevation data is too coarse to judge a few hundred metres of town, and the point

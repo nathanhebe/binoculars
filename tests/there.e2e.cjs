@@ -49,8 +49,9 @@ const z14 = (asked) => asked.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t));
   check('at 1x there is no "what\'s there" list', !l.shown, JSON.stringify(l));
 
   // 2. Fault: zooming on the seafront shows only the hill line (hotels need a chip, and there is
-  // no category for them). Edge: 2x, the first zoom step, every chip still off.
-  await p.evaluate(() => Object.assign(window.__binoculars.view, { zoomTarget: 2, zoom: 2 }));
+  // no category for them). Edge: a pinch to 1.96x, which the zoom button rounds to "2×", every
+  // chip still off.
+  await p.evaluate(() => Object.assign(window.__binoculars.view, { zoomTarget: 1.96, zoom: 1.96 }));
   const seen = await p
     .waitForFunction((names) => [...document.querySelectorAll('.label.on:not([hidden]) .n')].some((n) => names.includes(n.textContent)), HOTELS, { timeout: 15000, polling: 250 })
     .then(() => true, () => false);
