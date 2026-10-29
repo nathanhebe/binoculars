@@ -124,8 +124,17 @@ async function requestMotion() {
   }
 }
 
+// Why the camera is off, in words a user can act on; anything else shows the browser's own name.
+const CAMERA_REASONS = {
+  NotAllowedError: 'access refused (Settings › Safari › Camera)',
+  NotFoundError: 'no camera found',
+  NotReadableError: 'in use by another app',
+  NoMediaDevices: 'this browser gives no camera here',
+};
+
 async function startCamera() {
   try {
+    if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'NoMediaDevices' });
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
@@ -133,8 +142,11 @@ async function startCamera() {
     const v = $('video');
     v.srcObject = stream;
     await v.play().catch(() => {});
-  } catch {
-    toast('No camera — showing labels on a plain background.');
+    show('cam-off', false);
+  } catch (err) {
+    console.warn('camera failed:', err.name, err.message);
+    $('cam-off-text').textContent = `Camera off · ${CAMERA_REASONS[err.name] ?? err.name} ·`;
+    show('cam-off');
   }
 }
 
@@ -834,6 +846,8 @@ $('start-btn').addEventListener('click', () => {
   start(fixed);
 });
 $('demo-btn').addEventListener('click', () => start({ ...DEMO }));
+// A fresh tap, so the browser may show its camera prompt again.
+$('cam-retry').addEventListener('click', () => startCamera());
 document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => show(b.dataset.close, false)));
 
 function setAligning(on) {
