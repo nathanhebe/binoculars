@@ -42,7 +42,8 @@ function exact(lat, lon) {
   return null;
 }
 
-// Ceuta, Melilla and the Canaries are Spain but in Africa; Natural Earth files Spain under Europe.
+// The Canaries are Spain but in Africa; Natural Earth files Spain under Europe. Ceuta and Melilla
+// are too small for the simplified outlines to hold, so this rule never sees them.
 function continentOf(f, lat) {
   if (f.name === 'Spain' && lat < 35.95) return 'Africa';
   return f.continent;
