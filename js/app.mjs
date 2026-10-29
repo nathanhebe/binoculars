@@ -180,11 +180,12 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     then(() => toast('Loading place names…', 0));
     loadPlaces(lat, lon, RANGE_KM, {
       fresh,
-      onPart: (items, done, total) => {
+      onPart: (items, done, total, failed) => {
         world.items = items;
         then(async () => {
           await computePlaces(items, gen);
           if (done < total) toast(`Loading place names ${done} / ${total}…`, 0);
+          else if (failed) toast("Some place names didn't load — try Reload map data in settings.", 8000);
           else toast('Place names loaded.', 2000);
         });
       },

@@ -148,7 +148,7 @@ async function fetchPart(q) {
   throw lastErr;
 }
 
-// Resolves with every place found; calls onPart(placesSoFar, partsDone, partsTotal) as each
+// Resolves with every place found; calls onPart(placesSoFar, partsDone, partsTotal, partsFailed) as each
 // part lands. Throws only if no part loaded. Two parts at a time: servers allow two per user.
 export async function loadPlaces(lat, lon, rangeKm, { fresh = false, onPart = () => {} } = {}) {
   if (!fresh) {
@@ -182,7 +182,7 @@ export async function loadPlaces(lat, lon, rangeKm, { fresh = false, onPart = ()
         failed++;
       }
       done++;
-      onPart([...byId.values()], done, total);
+      onPart([...byId.values()], done, total, failed);
     }
   }
   await Promise.all([worker(), worker()]);
