@@ -379,7 +379,7 @@ function addPois(list) {
 // Called each frame; plans again when the heading moves 5°, the zoom or the chips change.
 function planPois(heading, halfDeg) {
   const zoom = view.zoomTarget;
-  const wanted = CATS.some((c) => settings.cats[c]) || zoom >= 4;
+  const wanted = CATS.some((c) => settings.cats[c]);
   const key = wanted && world.measuredGen === world.gen ? `${world.gen}|${Math.round(heading / 5)}|${zoom}` : '';
   if (key === poiLoad.key) return;
   poiLoad.key = key;
@@ -416,13 +416,11 @@ async function poiWorker() {
   }
 }
 
-// Places plus the points of interest the chips ask for (and, zoomed in, landmarks such as
-// castles and ferry ports), best first. A point of interest that is also a named place within
+// Places plus the points of interest the chips ask for, best first. A point of interest that is also a named place within
 // 500 m is left to the place. Worked out again only when one of those changes.
 const shown = { places: null, pois: null, key: '', list: [] };
 function shownPlaces() {
-  const landmarks = view.zoomTarget >= 4;
-  const key = `${CATS.map((c) => +settings.cats[c]).join('')}${+landmarks}`;
+  const key = CATS.map((c) => +settings.cats[c]).join('');
   if (shown.places === world.places && shown.pois === world.pois && shown.key === key) return shown.list;
   const byName = new Map();
   for (const p of world.places) {
@@ -431,7 +429,7 @@ function shownPlaces() {
   }
   const pois = world.pois.filter(
     (p) =>
-      (settings.cats[p.kind] || (landmarks && p.landmark)) &&
+      settings.cats[p.kind] &&
       !(byName.get(nameKey(p.name)) ?? []).some((q) => distance(p.lat, p.lon, q.lat, q.lon) < 500)
   );
   const list = pois.length ? [...world.places, ...pois].sort((a, b) => b.score - a.score) : world.places;

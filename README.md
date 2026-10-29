@@ -23,10 +23,9 @@ full screen.
 - If labels sit a little off the real thing, tap **Fix labels**, drag until the dotted skyline lies on
   the real one, then **Done**. The correction is remembered.
 - The chips above the bottom bar — **Food**, **Shops**, **Travel**, **Sights** — add those places
-  within a few km of you (4 km at 1×, more as you zoom, up to 20 km), each with a coloured dot and
+  within a few km of you (4 km at 1×, 8 km from 2× up), each with a coloured dot and
   its type ("Restaurant · 350 m"). A place a chip asks for is greyed in even when a hill hides it,
-  so you can see which way it is. Zoomed in to 4× or more, castles, viewpoints, stations and ferry
-  ports show with no chip on. Chips start off and are remembered. When a chip is on and none of
+  so you can see which way it is. Zooming alone fetches none of these. Chips start off and are remembered. When a chip is on and none of
   its places is in the picture, a note says so ("No food places this way"). Tap one of these places for its
   opening hours and website, when OpenStreetMap has them.
 - On a balcony or tower, raise *Your height above the ground* in Settings.
@@ -45,7 +44,7 @@ A static web app with no build step. On start it loads, for 150 km around you:
   names are saved on the phone for 30 days, so a second look from nearby asks only for tiles it
   has not seen;
 - restaurants, shops, stations and sights from the same map tiles' most detailed level (zoom 14,
-  about 2 km a tile; `js/pois.mjs`), only once a chip is on or you zoom to 4×, and only the tiles
+  about 2 km a tile; `js/pois.mjs`), only once a chip is on, out to 8 km, and only the tiles
   in the direction you face, nearest first, a moment after you stop turning; saved like the
   place names for 30 days. The tiles hold no opening hours or websites, so tapping one asks the
   Overpass API for that one place's tags; a website is linked only when it is an http(s) address;

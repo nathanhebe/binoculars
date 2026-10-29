@@ -174,6 +174,32 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
   check('with Food turned off the restaurants go', r === undefined && (await waitFood(false)), JSON.stringify(await foodLabels()));
   await p.screenshot({ path: `${OUT}/poi-oldtown-food-off.png` });
 
+  // 7. Fault: zooming alone, or a chip, fetches detailed tiles out to 20 km, hundreds of them
+  // (45-140 KB each in a town). Edge: a full turn in 8 headings at 8x, in a fresh browser.
+  for (const food of [false, true]) {
+    const ctx2 = await b.newContext({ viewport: { width: 430, height: 860 } });
+    await ctx2.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: PLACES }));
+    const asked2 = await routeTiles(ctx2);
+    const q = await ctx2.newPage();
+    const z14 = () => asked2.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t)).length;
+    const sweep = async () => {
+      for (let h = 0; h < 360; h += 45) {
+        await q.evaluate((deg) => Object.assign(window.__binoculars.view, { heading: deg, pitch: 0.3 }), h);
+        await q.waitForTimeout(900);
+      }
+    };
+    await q.goto(`${BASE}?${MARBELLA}&heading=0&pitch=0.3&nocam=1&autostart=1`);
+    await q.waitForFunction(() => window.__binoculars.world.placesDone, null, { timeout: 240000, polling: 500 });
+    await q.evaluate(() => { window.__binoculars.view.zoomTarget = 8; window.__binoculars.view.zoom = 8; });
+    if (food) await q.click('#chips button:text-is("Food")');
+    const before = z14();
+    await sweep();
+    const n = z14() - before;
+    if (food) check('with Food on at 8x a full turn asks for a bounded number of detailed tiles (8 km)', n > 0 && n <= 60, `${n} asked`);
+    else check('zoomed to 8x with every chip off, turning all the way round asks for no detailed tiles', n === 0, `${n} asked`);
+    await ctx2.close();
+  }
+
   check('no page errors', errors.length === 0, errors.join(' | '));
   await b.close();
   console.log(`\n${results.filter(Boolean).length} of ${results.length} checks passed`);

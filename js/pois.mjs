@@ -7,7 +7,7 @@ import { ENDPOINTS } from './places.mjs';
 const Z = 14;
 
 // How far points of interest are shown, in km: a few km by eye, further through the zoom.
-export const poiRange = (zoom) => Math.min(20, 4 * zoom);
+export const poiRange = (zoom) => Math.min(8, 4 * zoom);
 
 // What each map class or subclass counts as. Things nobody scans a view for (nightclubs,
 // kiosks, bus stops) are left out.
@@ -17,8 +17,6 @@ const SHOP_SUBCLASSES = new Set(['bakery', 'butcher']);
 const TRAVEL = new Set(['ferry_terminal', 'bus_station', 'marina']);
 const SIGHT_CLASSES = new Set(['attraction', 'castle', 'art_gallery']);
 const SIGHTS = new Set(['attraction', 'museum', 'viewpoint', 'gallery', 'castle', 'monument', 'ruins', 'fort', 'lighthouse']);
-// Shown when zoomed in even with no category chosen.
-const LANDMARKS = new Set(['castle', 'fort', 'viewpoint', 'ferry_terminal']);
 
 const TYPES = {
   clothes: 'Clothes shop', fast_food: 'Fast food', ice_cream: 'Ice cream', ferry_terminal: 'Ferry port',
@@ -55,7 +53,6 @@ export function poisOf(features) {
     const osmType = OSM_TYPES[id % 10];
     out.push({
       id: `p${id}`, name, kind, type: typeOf(tags.class, tags.subclass),
-      landmark: LANDMARKS.has(tags.subclass) || (tags.class === 'railway' && tags.subclass === 'station'),
       osm: osmType ? { type: osmType, id: Math.floor(id / 10) } : null,
       lat: Math.round(lat * 1e5) / 1e5, lon: Math.round(lon * 1e5) / 1e5,
       ele: null, height: null, population: null, wikipedia: null,

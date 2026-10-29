@@ -31,10 +31,6 @@ test('map points of interest are sorted into food, shops, travel and sights', ()
   assert.equal(by['Estación de autobuses'].kind, 'travel');
   assert.deepEqual(by['Estación de autobuses'].osm, { type: 'way', id: 126303874 });
   assert.equal(by['Castillo de Marbella'].kind, 'sights');
-  // Castles and ferry ports show when zoomed in without a category chosen; restaurants never do.
-  assert.equal(by['Castillo de Marbella'].landmark, true);
-  assert.equal(by['Ferry to Puerto Banus'].landmark, true);
-  assert.equal(by['El Cortijo'].landmark, false);
 });
 
 // Fault: tiles are fetched for the whole circle round the viewer, or far ones first, instead of
