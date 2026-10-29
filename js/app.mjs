@@ -633,9 +633,12 @@ $('hag').addEventListener('change', async () => {
   if (world.lat == null || world.busy) return;
   world.busy = true;
   try {
-    world.eye = terrain.elev(world.lat, world.lon) + settings.hag;
-    await computeHorizon();
-    await computePlaces(world.items, world.gen);
+    // Repeat if the height was changed again while this was working.
+    while (world.eye !== terrain.elev(world.lat, world.lon) + settings.hag) {
+      world.eye = terrain.elev(world.lat, world.lon) + settings.hag;
+      await computeHorizon();
+      await computePlaces(world.items, world.gen);
+    }
   } finally {
     world.busy = false;
   }
