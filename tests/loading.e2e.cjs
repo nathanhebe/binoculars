@@ -114,6 +114,29 @@ const fewestLabels = async (p) => {
     check('Reload never says done while names are still loading or failed', !falseDone, JSON.stringify(falseDone));
     fewest = await fewestLabels(p2);
     check('labels stay up through Reload', fewest.before > 0 && fewest.min > 0, JSON.stringify(fewest));
+    // Fault: Retry tapped while the view is being worked out (here, just after a height change)
+    // does nothing at all. Edge: tapped twice; it should load once, after the height change.
+    await p2.waitForSelector('#status-retry', { state: 'visible', timeout: 90000 }).catch(() => {});
+    const gen0 = await p2.evaluate(() => window.__binoculars.world.gen);
+    const tapped = await p2.evaluate(() => {
+      const h = document.getElementById('hag');
+      h.value = 60;
+      h.dispatchEvent(new Event('input'));
+      h.dispatchEvent(new Event('change'));
+      const busy = window.__binoculars.world.busy;
+      document.getElementById('status-retry').click();
+      document.getElementById('status-retry').click();
+      const s = document.getElementById('status');
+      return { busy, line: s.hidden ? '' : document.getElementById('status-text').textContent, retry: !document.getElementById('status-retry').hidden };
+    });
+    check('Retry tapped while busy says it is finding names straight away', tapped.busy && /^Finding more names…/.test(tapped.line) && !tapped.retry, JSON.stringify(tapped));
+    const reloaded = await p2
+      .waitForFunction((g) => window.__binoculars.world.gen > g && window.__binoculars.world.placesDone && !window.__binoculars.world.busy, gen0, { timeout: 120000, polling: 100 })
+      .then(() => true, () => false);
+    await p2.waitForTimeout(1000);
+    const after = await p2.evaluate(() => ({ gen: window.__binoculars.world.gen, hag: window.__binoculars.settings.hag }));
+    check('then loads the names once the view is ready, once for two taps', reloaded && after.gen === gen0 + 1 && after.hag === 60,
+      `${after.gen - gen0} loads, height ${after.hag} m`);
   }
 
   // 3. Fault: when location is refused or unavailable, the browser's own error text appears in

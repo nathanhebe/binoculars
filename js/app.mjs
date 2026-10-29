@@ -939,19 +939,27 @@ $('reset-align').addEventListener('click', () => {
   saveSettings();
   toast('Label fix undone.');
 });
-$('reload-data').addEventListener('click', async () => {
-  if (world.lat == null || world.busy) return;
+// Reload and Retry say at once that names are on the way. If the view is still being worked out
+// (a height change, a move), the load waits for it; taps while one is waiting or loading add nothing.
+let reloading = false;
+async function reloadPlaces() {
+  if (world.lat == null || reloading) return;
+  placeStatus({ done: 0, total: 0 });
+  reloading = true;
+  try {
+    while (world.busy) await new Promise((r) => setTimeout(r, 100));
+    await loadWorld(world.lat, world.lon, { fresh: true });
+  } finally {
+    reloading = false;
+  }
+}
+$('reload-data').addEventListener('click', () => {
   show('settings', false);
   // The place-name line shows progress, then goes or offers Retry; terrain returning first is
   // not the names being done.
-  await loadWorld(world.lat, world.lon, { fresh: true });
+  reloadPlaces();
 });
-
-$('status-retry').addEventListener('click', async () => {
-  if (world.lat == null || world.busy) return;
-  placeStatus({ done: 0, total: 0 });
-  await loadWorld(world.lat, world.lon, { fresh: true });
-});
+$('status-retry').addEventListener('click', reloadPlaces);
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
