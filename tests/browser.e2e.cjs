@@ -17,7 +17,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     p.on('console', (m) => m.type() === 'error' && !/status of 50\d|status of 429/.test(m.text()) && errors.push(m.text()));
   };
   let p = await ctx.newPage(); watch(p);
-  const st = (q) => p.evaluate(q);
+  const st = (q, arg) => p.evaluate(q, arg);
   const readout = () => p.textContent('#heading');
   const labels = () => p.$$eval('.label:not([hidden])', (ls) => ls.map((l) => l.querySelector('.n').textContent));
   const ready = async () => {
@@ -28,8 +28,11 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
 
   // Pages sites under one github.io account share an origin: the offline helper must leave
   // other sites' caches alone (fault: it deletes every cache that isn't its own).
+  // A bare SVG page has no icon link, so Chromium asks for /favicon.ico; the app's pages don't.
+  await p.route(/\/favicon\.ico$/, (r) => r.fulfill({ status: 204 }));
   await p.goto(BASE + 'icons/icon.svg');
   await p.evaluate(() => caches.open('another-site-v1'));
+  await p.unroute(/\/favicon\.ico$/);
 
   // 1. Real network: Marbella seafront facing Jebel Musa.
   await p.goto(BASE + '?lat=36.5068&lon=-4.886&heading=215&pitch=0.3&nocam=1&autostart=1');
