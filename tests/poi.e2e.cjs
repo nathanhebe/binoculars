@@ -176,7 +176,9 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
 
   // 7. Fault: zooming in names nothing but hills unless a chip is on; or zooming, alone or with a
   // chip, fetches a wide fan of detailed tiles (45-140 KB each in a town) rather than the narrow
-  // wedge looked at out to 16 km. Edge: a full turn in 8 headings at 8x, in a fresh browser.
+  // wedge looked at out to 16 km; or, as the wedge is planned again every 5/zoom°, a slow turn
+  // asks for a fresh wedge at each step. Edge: a full turn at 8x in 5° steps, settling at each,
+  // the slowest a user scans, in a fresh browser.
   for (const food of [false, true]) {
     const ctx2 = await b.newContext({ viewport: { width: 430, height: 860 } });
     await ctx2.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: PLACES }));
@@ -184,9 +186,9 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
     const q = await ctx2.newPage();
     const z14 = () => asked2.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t)).length;
     const sweep = async () => {
-      for (let h = 0; h < 360; h += 45) {
+      for (let h = 0; h < 360; h += 5) {
         await q.evaluate((deg) => Object.assign(window.__binoculars.view, { heading: deg, pitch: 0.3 }), h);
-        await q.waitForTimeout(900);
+        await q.waitForTimeout(700);
       }
     };
     await q.goto(`${BASE}?${MARBELLA}&heading=0&pitch=0.3&nocam=1&autostart=1`);

@@ -223,6 +223,7 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
       finer.raw.clear();
       finer.tiles = new Set(tilePlan(lat, lon, RANGE_KM).map((t) => `${t.z}/${t.x}/${t.y}`));
       finer.limit = finer.tiles.size + FINER_BUDGET;
+      poiLoad.limit = poiTiles.size + POI_BUDGET;
     }
     world.items = prev;
     world.placesDone = false;
@@ -440,7 +441,10 @@ const kindShown = (kind) => settings.cats[kind] || (autoPois() && CATS.includes(
 const asked = (p) => isPoi(p) && kindShown(p.kind);
 const poiTiles = new Map(); // 'x/y' → 'loading' or 'done'
 const poiRaw = new Map(); // id → point of interest as the tile gave it
-const poiLoad = { key: '', timer: null, waiting: false, queue: [], busy: 0 };
+// limit: the size poiTiles may grow to from here, POI_BUDGET past what it held on arriving, as
+// one slow turn at 8× from Marbella otherwise asks for 238.
+const POI_BUDGET = 120;
+const poiLoad = { key: '', timer: null, waiting: false, queue: [], busy: 0, limit: POI_BUDGET };
 
 // Distance, direction, angle and whether hills or the curve hide it, as computePlaces does.
 function measurePoi(p) {
@@ -476,7 +480,9 @@ function planPois(heading, halfDeg) {
   if (!key) return;
   poiLoad.timer = setTimeout(() => {
     poiLoad.waiting = false;
-    poiLoad.queue = poiPlan(world.lat, world.lon, heading, (halfDeg + 5) / zoom, zoom).filter((t) => !poiTiles.has(`${t.x}/${t.y}`));
+    poiLoad.queue = poiPlan(world.lat, world.lon, heading, (halfDeg + 5) / zoom, zoom)
+      .filter((t) => !poiTiles.has(`${t.x}/${t.y}`))
+      .slice(0, Math.max(0, poiLoad.limit - poiTiles.size));
     for (let i = poiLoad.busy; i < POI_WORKERS; i++) poiWorker();
   }, POI_WAIT_MS);
 }

@@ -60,7 +60,8 @@ A static web app with no build step. On start it loads, for 150 km around you:
 - restaurants, shops, stations, sights and hotels from the same map tiles' most detailed level (zoom 14,
   about 2 km a tile; `js/pois.mjs`), only once a chip is on or the view is zoomed to 2× or more,
   out to 16 km, and only the tiles
-  in the direction you face, nearest first, a moment after you stop turning; saved like the
+  in the direction you face, nearest first, a moment after you stop turning, at most 120 from
+  one place; saved like the
   place names for 30 days. The tiles hold no opening hours or websites, so tapping one asks the
   Overpass API for that one place's tags; a website is linked only when it is an http(s) address;
 - lighthouses, capes, castles, marinas and viewpoints, which the map tiles leave out, from the
