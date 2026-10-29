@@ -77,6 +77,41 @@ const z14 = (asked) => asked.filter((t) => /\/14\/\d+\/\d+\.pbf$/.test(t));
     Array.isArray(opened) && first.startsWith(`${opened[0]} · `) && /Stay · Hotel|Stay · Hostel/.test(opened[1] || ''), JSON.stringify(opened));
   await p.screenshot({ path: `${OUT}/there-sheet.png` });
 
+  // 4. Fault: after a height change the list keeps its old buttons, so a tapped item's sheet says
+  // hidden or visible from the old height. Edge: an item whose visibility the change flips, its
+  // name and distance unchanged.
+  await p.click('#info [data-close]');
+  const seenAt = () => p.evaluate(() => {
+    const ws = [...window.__binoculars.world.pois, ...window.__binoculars.world.places];
+    return [...document.querySelectorAll('#there button')].map((x) => {
+      const w = ws.find((q) => x.textContent.startsWith(`${q.name} · `));
+      return { text: x.textContent, visible: w ? !!w.visible : null };
+    });
+  });
+  // From 5 m the seafront hotels are hidden; from 10 m the same list's hotels are in view.
+  const setHeight = async (m) => {
+    await p.evaluate((m) => {
+      const h = document.getElementById('hag');
+      h.value = m;
+      h.dispatchEvent(new Event('input'));
+      h.dispatchEvent(new Event('change'));
+    }, m);
+    await p.waitForFunction((m) => window.__binoculars.settings.hag === m && !window.__binoculars.world.busy, m, { timeout: 120000, polling: 100 });
+    await p.waitForTimeout(800);
+    return seenAt();
+  };
+  const before = await setHeight(5);
+  const after = await setHeight(10);
+  const same = after.map((a) => a.text).join() === before.map((x) => x.text).join();
+  const flipped = same && after.find((a) => before.some((x) => x.text === a.text && x.visible !== a.visible));
+  const sheet = flipped
+    ? await p.click(`#there button:text-is("${flipped.text}")`, { timeout: 3000 })
+        .then(() => p.waitForFunction(() => !document.getElementById('info').hidden, null, { timeout: 3000 }))
+        .then(() => p.textContent('#info-visible'))
+    : null;
+  check('after a height change a listed place\'s sheet says what is visible from the new height',
+    flipped && /^Yes/.test(sheet) === flipped.visible, JSON.stringify({ flipped, sheet, before, after }));
+
   check('no page errors', errors.length === 0, errors.join(' | '));
   await b.close();
   const failed = results.filter((r) => !r).length;

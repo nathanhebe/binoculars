@@ -544,7 +544,8 @@ function updateThere(places, heading, half) {
       .sort((a, b) => a.d - b.d)
       .slice(0, THERE_MAX);
   }
-  const key = items.map((p) => `${p.id}|${Math.round(p.d)}`).join(',');
+  // Whether each is in view is in the key: a height change keeps names and distances.
+  const key = items.map((p) => `${p.id}|${Math.round(p.d)}|${p.visible ? 'v' : p.blockedBy}`).join(',');
   if (key === thereKey) return;
   thereKey = key;
   el.replaceChildren(
