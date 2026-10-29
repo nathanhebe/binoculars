@@ -13,6 +13,20 @@ const check = (name, ok, detail = '') => {
   results.push(ok);
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${detail}`);
 };
+// Counts the labels on screen every 50 ms from now on.
+const watchLabels = (p) =>
+  p.evaluate(() => {
+    const count = () => document.querySelectorAll('.label:not([hidden])').length;
+    clearInterval(window.__labelWatch);
+    window.__labels = { before: count(), min: count() };
+    window.__labelWatch = setInterval(() => (window.__labels.min = Math.min(window.__labels.min, count())), 50);
+  });
+// Once the reload has finished, the fewest names seen on screen since watchLabels.
+const fewestLabels = async (p) => {
+  await p.waitForFunction(() => window.__binoculars.world.placesDone && !window.__binoculars.world.busy, null, { timeout: 120000, polling: 100 });
+  await p.waitForTimeout(300);
+  return p.evaluate(() => (clearInterval(window.__labelWatch), window.__labels));
+};
 
 (async () => {
   const b = await chromium.launch({ channel: 'chromium' });
@@ -66,10 +80,15 @@ const check = (name, ok, detail = '') => {
     await p2.waitForTimeout(6000);
     const visibleLater = await p2.isVisible('#status-retry');
     const before = asked();
+    await watchLabels(p2);
     await p2.click('#status-retry');
     const t1 = Date.now();
     while (asked() === before && Date.now() - t1 < 10000) await p2.waitForTimeout(100);
     check('Retry stays up and asks the servers again', visibleLater && asked() > before, `${before} requests before, ${asked()} after`);
+    // Fault: Retry blanks every label until the terrain has been loaded again. Edge: only the
+    // bundled names are up, as every server fails.
+    let fewest = await fewestLabels(p2);
+    check('labels stay up through Retry', fewest.before > 0 && fewest.min > 0, JSON.stringify(fewest));
     // Fault: the lasting line sits in front of open sheets and covers their rows on a short
     // phone. Edge: the line is up when the settings sheet opens, and comes back when it closes.
     await p2.waitForSelector('#status-retry', { state: 'visible', timeout: 90000 }).catch(() => {});
@@ -82,6 +101,7 @@ const check = (name, ok, detail = '') => {
     // while the names are still loading or have failed. Edge: every server fails.
     await p2.waitForFunction(() => !window.__binoculars.world.busy, null, { timeout: 120000 });
     await p2.click('#settings-btn');
+    await watchLabels(p2);
     await p2.click('#reload-data');
     let falseDone = null;
     for (let i = 0; i < 50 && !falseDone; i++) {
@@ -92,6 +112,8 @@ const check = (name, ok, detail = '') => {
       await p2.waitForTimeout(200);
     }
     check('Reload never says done while names are still loading or failed', !falseDone, JSON.stringify(falseDone));
+    fewest = await fewestLabels(p2);
+    check('labels stay up through Reload', fewest.before > 0 && fewest.min > 0, JSON.stringify(fewest));
   }
 
   // 3. Fault: when location is refused or unavailable, the browser's own error text appears in

@@ -201,6 +201,9 @@ const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
 async function loadWorld(lat, lon, { fresh = false } = {}) {
   world.busy = true;
   try {
+    // Retry and Reload load the same spot again: what is on screen stays right until the new
+    // list replaces it. After a move it is measured from the wrong place, so it goes.
+    const moved = lat !== world.lat || lon !== world.lon;
     world.lat = lat;
     world.lon = lon;
     loading('Loading terrain…');
@@ -210,7 +213,7 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
     // After a move, show the places already loaded from the new position until fresh ones arrive.
     // The bundled ones are for the old position; this load brings its own.
     const prev = (world.items ?? []).filter((x) => !isMajor(x));
-    world.places = [];
+    if (moved) world.places = [];
     world.items = prev;
     world.placesDone = false;
     // Place names come from a slow public server, so they stream in after the view is up.
