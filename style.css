@@ -186,6 +186,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* An open sheet stands alone: the bar, the card and the empty-view note step out of the way.
    visibility, not display, so the bar keeps its place and messages still sit just above it. */
 body.sheet-open #hud, body.sheet-open #target, body.sheet-open #reticle, body.sheet-open #empty { visibility: hidden; }
+/* Only passing messages stay in front of a sheet; the lasting lines would cover its rows. */
+body.sheet-open #status, body.sheet-open #cam-off, body.sheet-open #align-hint { visibility: hidden; }
 .sheet h2 { margin: 0 36px 2px 0; font-size: 21px; }
 #info-lead { margin: 0 36px 0 0; font-size: 18px; line-height: 1.4; }
 #info-name { font-size: 21px; }

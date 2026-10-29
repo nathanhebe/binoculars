@@ -67,6 +67,14 @@ const check = (name, ok, detail = '') => {
     const t1 = Date.now();
     while (asked === before && Date.now() - t1 < 10000) await p2.waitForTimeout(100);
     check('Retry stays up and asks the servers again', visibleLater && asked > before, `${before} requests before, ${asked} after`);
+    // Fault: the lasting line sits in front of open sheets and covers their rows on a short
+    // phone. Edge: the line is up when the settings sheet opens, and comes back when it closes.
+    await p2.waitForSelector('#status-retry', { state: 'visible', timeout: 90000 }).catch(() => {});
+    await p2.click('#settings-btn');
+    const overSheet = await p2.isVisible('#status');
+    await p2.click('#settings [data-close]');
+    const afterClose = await p2.isVisible('#status');
+    check('the place-name line steps aside while a sheet is open', !overSheet && afterClose, JSON.stringify({ overSheet, afterClose }));
   }
 
   // 3. Fault: when location is refused or unavailable, the browser's own error text appears in
