@@ -5,9 +5,10 @@ A static phone web app: no build step, plain ES modules, served from GitHub Page
 ## Checks
 
 - Unit tests: `node --test tests/*.test.mjs`
-- Browser tests: serve the repository root with `python3 -m http.server 8765`, then run
-  `node tests/<name>.e2e.cjs` for each file in `tests/` ending `.e2e.cjs`
-  (`BASE_URL` overrides the address)
+- Browser tests need Playwright with Chromium installed outside this repository. Serve the
+  repository root with `python3 -m http.server 8765`, then run
+  `NODE_PATH=<dir with playwright installed>/node_modules node tests/<name>.e2e.cjs <screenshot dir outside the repo>`
+  for each file in `tests/` ending `.e2e.cjs` (`BASE_URL` overrides the address)
 
 ## Merge authority
 
