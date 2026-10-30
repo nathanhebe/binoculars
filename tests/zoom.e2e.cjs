@@ -237,18 +237,24 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
     await ctx.close();
   }
 
-  // 4. Fault: the cap on finer map tiles is per view, so a slow turn zoomed in asks for a fresh
-  // 12 at every 5°: 864 in one turn at 8x from Marbella, against 25 for the first load. Edge: a
-  // full turn at 8x in 5° steps, settling at each, the slowest a user scans.
+  // 4. Faults: a finer tile asked again each time the view passes it, so a turn asks without
+  // end; and a cap per place, so the last part of a turn asks for none and its villages never
+  // appear. Edge: a full turn at 8x in 5° steps, settling at each, the slowest a user scans; the
+  // 150 km circle round Marbella holds 319 zoom-11 tiles that finerPlan can name.
   {
     const { ctx, p, errors: e, asked } = await open(b, { width: 430, height: 860 }, 0);
     const from = asked.length;
+    let lastQuarter = 0;
     for (let h = 0; h < 360; h += 5) {
+      if (h === 270) lastQuarter = asked.length;
       await look(p, h, 8);
       await p.waitForTimeout(700);
     }
-    const finerAsked = asked.slice(from).filter((x) => tileZ(x) >= 10 && placeTile(x));
-    check('a full turn at 8x asks for at most 96 finer map tiles', finerAsked.length >= 1 && finerAsked.length <= 96, `${finerAsked.length} asked`);
+    const finer = (xs) => xs.filter((x) => tileZ(x) >= 10 && placeTile(x));
+    const finerAsked = finer(asked.slice(from));
+    const late = finer(asked.slice(lastQuarter)).length;
+    check('a full turn at 8x asks each finer map tile at most once, at most 319', finerAsked.length >= 1 && finerAsked.length <= 319 && new Set(finerAsked).size === finerAsked.length, `${finerAsked.length} asked, ${new Set(finerAsked).size} different`);
+    check('the last quarter of a full turn at 8x still asks for finer map tiles', late > 0, `${late} asked`);
     errors.push(...e);
     await ctx.close();
   }

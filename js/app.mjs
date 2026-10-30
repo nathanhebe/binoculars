@@ -222,7 +222,6 @@ async function loadWorld(lat, lon, { fresh = false } = {}) {
       world.pois = [];
       finer.raw.clear();
       finer.tiles = new Set(tilePlan(lat, lon, RANGE_KM).map((t) => `${t.z}/${t.x}/${t.y}`));
-      finer.limit = finer.tiles.size + FINER_BUDGET;
     }
     world.items = prev;
     world.placesDone = false;
@@ -364,15 +363,12 @@ async function computePlaces(places, gen) {
 // ---------- finer place names when zoomed in ----------
 // Zoomed in, the map tiles a level or more finer than the first load (tiles.mjs: finerPlan)
 // name smaller places in the direction looked at: at most FINER_MAX tiles a view, nearest
-// first, once the view has settled for a moment, like the points of interest below; and at most
-// FINER_BUDGET from one place, about four times the first load, as one slow turn at 8× would
-// otherwise ask for hundreds.
+// first, once the view has settled for a moment, like the points of interest below.
 const FINER_WORKERS = 2;
 const FINER_MAX = 12;
-const FINER_BUDGET = 96;
 // raw: id → place as its tile gave it; tiles: 'z/x/y' asked for from here (the first load's
-// own tiles included, so none is asked twice); limit: the size tiles may grow to from here.
-const finer = { raw: new Map(), tiles: new Set(), limit: 0, key: '', timer: null, queue: [], busy: 0 };
+// own tiles included, so none is asked twice).
+const finer = { raw: new Map(), tiles: new Set(), key: '', timer: null, queue: [], busy: 0 };
 
 // Called each frame; plans again when the heading moves 5° or the zoom passes a step.
 function planFiner(heading, halfDeg) {
@@ -388,7 +384,7 @@ function planFiner(heading, halfDeg) {
     if (gen !== world.gen) return;
     finer.queue = finerPlan(world.lat, world.lon, heading, halfDeg / step + 2, step, RANGE_KM)
       .filter((t) => !finer.tiles.has(`${t.z}/${t.x}/${t.y}`))
-      .slice(0, Math.min(FINER_MAX, finer.limit - finer.tiles.size))
+      .slice(0, FINER_MAX)
       .map((t) => ({ ...t, gen }));
     for (let i = finer.busy; i < FINER_WORKERS; i++) finerWorker();
   }, POI_WAIT_MS);
