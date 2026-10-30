@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Binoculars</title>
+  <meta name="description" content="Point your phone at a view and see which towns, peaks and countries you're looking at.">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Binoculars">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="overlay"></canvas>
+  <div id="labels"></div>
+
+  <div id="banner" hidden>
+    <div id="banner-continent"></div>
+    <div id="banner-line"><span id="banner-country"></span><span id="banner-note"></span></div>
+  </div>
+  <div id="empty" hidden><span id="empty-text"></span><button id="empty-show">Show</button></div>
+
+  <div id="edge-left" class="edge-hint" hidden><span class="a">‹</span> <span class="n"></span> <span class="d"></span></div>
+  <div id="edge-right" class="edge-hint" hidden><span class="n"></span> <span class="d"></span> <span class="a">›</span></div>
+
+  <div id="reticle" hidden><i></i><i></i><i></i><i></i></div>
+  <button id="target" hidden><span class="t-name"></span><span class="t-meta"></span><span class="t-where"></span></button>
+
+  <div id="hud" hidden>
+    <div id="readout"><span id="heading">—</span><span id="pitch"></span></div>
+    <div id="tools">
+      <button id="align-btn" title="Line labels up with what you see" hidden>Fix labels</button>
+      <button id="settings-btn" title="Settings">⚙︎</button>
+    </div>
+    <button id="zoom-btn" title="Zoom: tap for 1×, 2×, 4×, 8×; pinch for any">1×</button>
+  </div>
+
+  <div id="notices">
+    <div id="toast" hidden></div>
+    <div id="align-hint" hidden>Drag until the dotted skyline sits on the real one, then tap <b>Done</b>.
+      <button id="align-done">Done</button></div>
+    <div id="cam-off" role="status" hidden><span id="cam-off-text"></span>
+      <button id="cam-retry">Try again</button></div>
+    <div id="status" role="status" hidden>
+      <span id="status-text"></span>
+      <button id="status-retry" hidden>Retry</button>
+      <div id="status-bar"><div></div></div>
+    </div>
+    <div id="there" aria-label="Near the middle of the view" hidden></div>
+    <div id="chip-hint" role="status" hidden></div>
+    <div id="chips" role="group" aria-label="Show nearby" hidden>
+      <button data-cat="food" aria-pressed="false">Food</button>
+      <button data-cat="shops" aria-pressed="false">Shops</button>
+      <button data-cat="travel" aria-pressed="false">Travel</button>
+      <button data-cat="sights" aria-pressed="false">Sights</button>
+      <button data-cat="stay" aria-pressed="false">Stay</button>
+    </div>
+  </div>
+
+  <section id="start" class="sheet-full">
+    <img src="icons/icon.svg" alt="" width="84" height="84">
+    <h1>Binoculars</h1>
+    <p>Point your phone at the view. See what's out there — and what's hidden behind the hills.</p>
+    <p id="start-error" role="alert" hidden>Binoculars needs your location to know what's around you. Turn on Location for this site, then tap Start — or try the demo.</p>
+    <button id="start-btn" class="primary">Start</button>
+    <button id="demo-btn" class="secondary">Try the demo: Spain → Africa</button>
+    <p class="small">Needs your camera, compass and location. Nothing leaves your phone except
+      map requests to OpenFreeMap, OpenStreetMap and AWS terrain tiles.</p>
+  </section>
+
+  <section id="loading" class="sheet-full" hidden>
+    <div class="spinner"></div>
+    <p id="loading-text">Finding you…</p>
+  </section>
+
+  <section id="info" class="sheet" hidden>
+    <button class="close" data-close="info">✕</button>
+    <p id="info-lead"><b id="info-name"></b><span id="info-lead-rest"></span></p>
+    <dl>
+      <dt>Kind of place</dt><dd id="info-kind"></dd>
+      <dt>Distance</dt><dd id="info-distance"></dd>
+      <dt>Direction</dt><dd id="info-bearing"></dd>
+      <div id="info-height-row"><dt>Height</dt><dd id="info-height"></dd></div>
+      <div id="info-hours-row" hidden><dt>Opening hours</dt><dd id="info-hours"></dd></div>
+      <dt>Can you see it?</dt><dd id="info-visible"></dd>
+    </dl>
+    <p class="links"><a id="info-wiki" target="_blank" rel="noopener">Wikipedia</a>
+      <a id="info-map" target="_blank" rel="noopener">Google Maps</a>
+      <a id="info-website" target="_blank" rel="noopener" hidden></a></p>
+  </section>
+
+  <section id="settings" class="sheet" hidden>
+    <button class="close" data-close="settings">✕</button>
+    <h2>Settings</h2>
+    <label class="row"><input id="show-hidden" type="checkbox"> Also show places hidden behind hills</label>
+    <label class="row"><input id="show-skyline" type="checkbox"> Show dotted skyline</label>
+    <label>Label spread (if labels drift as you turn) <span id="fov-val"></span>
+      <input id="fov" type="range" min="40" max="90" step="1"></label>
+    <div class="buttons">
+      <button id="reset-align" class="secondary">Undo label fix</button>
+      <button id="reload-data" class="secondary">Reload place names</button>
+    </div>
+    <label>Your height above the ground <span id="hag-val"></span>
+      <input id="hag" type="range" min="1" max="300" step="1"></label>
+    <p class="muted small">Raise this on a balcony, tower or rooftop. You are at <span id="eye-val"></span> above sea level.</p>
+    <p class="muted small">Places © OpenStreetMap contributors, map tiles by OpenFreeMap © OpenMapTiles. Terrain: Mapzen / AWS Terrain Tiles.
+      Borders: Natural Earth. Mountains: Wikidata.</p>
+  </section>
+
+  <script type="module" src="js/app.mjs"></script>
+</body>
+</html>
