@@ -179,7 +179,8 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
   // wedge looked at out to 16 km; or, as the wedge is planned again every 5/zoom°, a slow turn
   // asks for a fresh wedge at each step; or a budget per place stops the detailed tiles partway
   // round, so the last directions faced name nothing. Edge: a full turn at 8x in 5° steps,
-  // settling at each, in a fresh browser; the 16 km circle round Marbella holds 238 tiles.
+  // settling at each, in a fresh browser; the 16 km circle round Marbella holds 239 tiles, of
+  // which a turn in 5° steps asks 238, so any wider wedge asks all 239.
   for (const food of [false, true]) {
     const ctx2 = await b.newContext({ viewport: { width: 430, height: 860 } });
     await ctx2.route(/\/interpreter/, (r) => r.fulfill({ contentType: 'application/json', body: PLACES }));
