@@ -12,4 +12,7 @@ A static phone web app: no build step, plain ES modules, served from GitHub Page
 
 ## Merge authority
 
+The line below lets Claude merge its own pull requests here once its review and proofs pass.
+Codex's own rules do not use it: Codex still needs Nathan's approval for each pull request.
+
 Agent autonomous merge: allowed
