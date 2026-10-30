@@ -39,7 +39,7 @@ const FINER_Z = { 2: 10, 4: 11, 8: 11 };
 const POI = ['food', 'shops', 'travel', 'sights', 'stay'];
 const tileZ = (path) => Number((/\/(\d+)\/\d+\/\d+\.pbf$/.exec(path) || [])[1]);
 // Place-name tiles only: zoomed to 2x or more, the zoom-14 shop and hotel tiles are asked for
-// too, and tests/poi.e2e.cjs holds their budget.
+// too, and tests/poi.e2e.cjs bounds how many a full turn asks for.
 const placeTile = (path) => tileZ(path) < 14;
 const look = (p, heading, zoom) =>
   p.evaluate(([h, z]) => {
@@ -240,7 +240,8 @@ const show = (z, ls) => console.log(`  ${z}x: ${ls.map((l) => `${l.name} [${l.ki
   // 4. Faults: a finer tile asked again each time the view passes it, so a turn asks without
   // end; and a cap per place, so the last part of a turn asks for none and its villages never
   // appear. Edge: a full turn at 8x in 5° steps, settling at each, the slowest a user scans; the
-  // 150 km circle round Marbella holds 319 zoom-11 tiles that finerPlan can name.
+  // 150 km circle round Marbella holds about 320 zoom-11 tiles that finerPlan can name, a few
+  // already held from the first load, and a turn in 5° steps asks 313.
   {
     const { ctx, p, errors: e, asked } = await open(b, { width: 430, height: 860 }, 0);
     const from = asked.length;
