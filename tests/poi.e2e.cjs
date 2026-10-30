@@ -178,7 +178,8 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
   // chip, fetches a wide fan of detailed tiles (45-140 KB each in a town) rather than the narrow
   // wedge looked at out to 16 km; or, as the wedge is planned again every 5/zoom°, a slow turn
   // asks for a fresh wedge at each step; or a budget per place stops the detailed tiles partway
-  // round, so the last directions faced name nothing. Edge: a full turn at 8x in 5° steps,
+  // round, so the last directions faced name nothing, even one set so high that only a few of
+  // them do. Edge: a full turn at 8x in 5° steps,
   // settling at each, in a fresh browser; the 16 km circle round Marbella holds 239 tiles, of
   // which a turn in 5° steps asks 238, so any wider wedge asks all 239.
   for (const food of [false, true]) {
@@ -203,7 +204,7 @@ const attempt = (fn) => fn().catch((e) => `error: ${e.message.split('\n')[0]}`);
     const before = z14();
     await sweep();
     const n = z14() - before;
-    check(`at 8x ${food ? 'with Food on' : 'with every chip off'} a full turn asks for a bounded number of detailed tiles (16 km)`, n > 0 && n <= 238, `${n} asked`);
+    check(`at 8x ${food ? 'with Food on' : 'with every chip off'} a full turn asks for 220 to 238 detailed tiles (16 km)`, n >= 220 && n <= 238, `${n} asked`);
     check(`at 8x ${food ? 'with Food on' : 'with every chip off'} the last quarter of a full turn still asks for detailed tiles`, lastQuarter > 0, `${lastQuarter} asked`);
     await ctx2.close();
   }
