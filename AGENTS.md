@@ -12,7 +12,9 @@ A static phone web app: no build step, plain ES modules, served from GitHub Page
 
 ## Merge authority
 
-The line below lets Claude merge its own pull requests here once its review and proofs pass.
-Codex's own rules do not use it: Codex still needs Nathan's approval for each pull request.
+The line below lets Claude merge pull requests here without Nathan's approval for each one. The
+merge check does not look at who wrote a pull request, so the line covers pull requests from
+forks too; Nathan accepted that. Codex's own rules do not use the line: Codex still needs
+Nathan's approval for each pull request.
 
 Agent autonomous merge: allowed
