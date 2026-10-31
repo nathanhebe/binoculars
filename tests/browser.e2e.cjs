@@ -63,14 +63,14 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     const cs = getComputedStyle(l);
     const n = getComputedStyle(l.querySelector('.n'));
     const m = getComputedStyle(l.querySelector('.m'));
-    const sizes = [[16, 1], [14, 0.9], [12, 0.75]];
+    const sizes = [[17, 1], [15, 0.9], [13, 0.75]];
     const by = (place.d < 20000 ? 0 : place.d < 80000 ? 1 : 2) +
       (['food', 'shops', 'travel', 'sights'].includes(place.kind) ? 0 : place.score >= 75 ? -1 : place.score < 35 ? 1 : 0);
     const want = [...sizes[Math.min(2, Math.max(0, by))]];
-    if (l.classList.contains('hidden-place')) want[1] *= 0.6;
+    if (l.classList.contains('hidden-place')) want[1] *= 0.55;
     const got = [parseFloat(n.fontSize), parseFloat(cs.opacity)];
-    const ok = cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.textShadow !== 'none' && got[0] === want[0] &&
-      Math.abs(got[1] - want[1]) < 0.01 && m.fontSize === '11px' && m.textTransform === 'uppercase' &&
+    const ok = cs.backgroundColor === 'rgba(0, 0, 0, 0)' && parseFloat(cs.webkitTextStrokeWidth) > 0 && got[0] === want[0] &&
+      Math.abs(got[1] - want[1]) < 0.01 && m.fontSize === '10.5px' && m.textTransform === 'uppercase' &&
       /opacity/.test(cs.transitionProperty);
     return `${place.name} ${Math.round(place.d / 1000)} km ${got.join('/')}${ok ? '' : ' WRONG'}`;
   }));
@@ -180,11 +180,11 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     return `${el.id}: ${text}`;
   }));
   check('settings are in plain words, most useful first', JSON.stringify(settingsOrder.slice(0, 5)) === JSON.stringify([
-    'show-hidden: Also show places hidden behind hills',
+    'show-hidden: Show hidden places',
     'show-skyline: Show dotted skyline',
     'fov: Label spread (if labels drift as you turn)',
     'reset-align: Undo label fix',
-    'reload-data: Reload place names',
+    'reload-data: Reload places',
   ]) && settingsOrder.length === 6, JSON.stringify(settingsOrder));
   const settingsLook = await sheetLook('settings');
   check('the settings sheet is solid and the controls hide', !settingsLook.hud && /^rgb\(/.test(settingsLook.bg), JSON.stringify(settingsLook));
@@ -262,7 +262,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   ls = await labels();
   check('looking north: Europe / Spain with Spanish places', bn[0] === 'Europe' && bn[1] === 'Spain' && ls.length > 0, `${bn.join(' | ')} :: ${ls.join(', ')}`);
   const lookN = await labelLook();
-  check('near labels north are larger, styled as above', lookN.some((x) => / 16\/1$/.test(x)) && lookN.every((x) => !/WRONG/.test(x)), lookN.join(', '));
+  check('near labels north are larger, styled as above', lookN.some((x) => / 17\/1$/.test(x)) && lookN.every((x) => !/WRONG/.test(x)), lookN.join(', '));
   await p.screenshot({ path: `${OUT}/5-north.png` });
 
   // Fault: labels are kept out of a fixed 96 px at the top, so on a phone with a notch, where
@@ -326,7 +326,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   await p.goto(BASE + '?nocam=1');
   // Fault: the opening words explained the app instead of inviting you to use it.
   const intro = await st(() => [document.querySelector('#start p')?.textContent.replace(/\s+/g, ' ').trim(), document.getElementById('demo-btn')?.textContent]);
-  check('the start screen invites you in, and the demo says where it goes', intro[0] === "Point your phone at the view. See what's out there — and what's hidden behind the hills." && intro[1] === 'Try the demo: Spain → Africa', JSON.stringify(intro));
+  check('the start screen invites you in, and the demo says where it goes', intro[0] === 'Point at a view. It names itself.' && intro[1] === 'Try the demo · Costa del Sol', JSON.stringify(intro));
   await p.click('#demo-btn');
   await ready();
   ls = await labels();

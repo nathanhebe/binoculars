@@ -423,7 +423,7 @@ function addFiner(list) {
 const POI_WORKERS = 2;
 const POI_WAIT_MS = 350;
 const POI_MAX_KM = poiRange(10);
-const CAT_COLOURS = { food: '#ff8a5c', shops: '#d08cff', travel: '#5cc8ff', sights: '#7ee08a', stay: '#ffd166' };
+const CAT_COLOURS = { food: '#FF8A4C', shops: '#FFC23D', travel: '#4CC9F0', sights: '#FF6FAE', stay: '#F5F7F2' };
 const isPoi = (p) => CATS.includes(p.kind);
 // Zoomed in to 2× or more with every chip off, every kind is shown: zooming on a stretch of
 // coast is itself asking what is there. Any chip on chooses the kinds, at any zoom.
@@ -860,7 +860,7 @@ function placeReticle(target, W, H) {
   el.style.left = `${x}px`;
   el.style.top = `${y}px`;
   if (target) {
-    ctx.fillStyle = '#ffcf4a';
+    ctx.fillStyle = '#D4FF3D';
     ctx.beginPath();
     ctx.arc(x, y, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -913,7 +913,7 @@ $('target').addEventListener('click', () => {
 });
 
 function drawSkyline(project, W) {
-  ctx.strokeStyle = view.aligning ? 'rgba(255, 207, 74, 0.95)' : 'rgba(255, 255, 255, 0.55)';
+  ctx.strokeStyle = view.aligning ? 'rgba(212, 255, 61, 0.95)' : 'rgba(255, 255, 255, 0.55)';
   ctx.lineWidth = view.aligning ? 2.5 : 1.5;
   ctx.setLineDash([5, 4]);
   ctx.beginPath();
@@ -994,7 +994,7 @@ function drawLabels(places, project, W, H, target, reserved, top, bottom, now) {
   }
   ctx.restore();
   for (const { p, sx, sy } of drawn) {
-    ctx.fillStyle = p.visible ? (CAT_COLOURS[p.kind] ?? '#ffcf4a') : '#8a93a6';
+    ctx.fillStyle = p.visible ? (CAT_COLOURS[p.kind] ?? '#F5F7F2') : 'rgba(245, 247, 242, 0.55)';
     ctx.beginPath();
     ctx.arc(sx, sy, 3, 0, Math.PI * 2);
     ctx.fill();

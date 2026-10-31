@@ -3,16 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <title>Binoculars</title>
-  <meta name="description" content="Point your phone at a view and see which towns, peaks and countries you're looking at.">
-  <meta name="theme-color" content="#0b1220">
+  <title>What's Over There?</title>
+  <meta name="description" content="Point your phone at a view and it names the towns, peaks and coasts you're looking at.">
+  <meta name="theme-color" content="#0A1418">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Binoculars">
+  <meta name="apple-mobile-web-app-title" content="Over There">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Martian+Mono:wdth,wght@75..112.5,100..800&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -64,14 +67,15 @@
   </div>
 
   <section id="start" class="sheet-full">
-    <img src="icons/icon.svg" alt="" width="84" height="84">
-    <h1>Binoculars</h1>
-    <p>Point your phone at the view. See what's out there — and what's hidden behind the hills.</p>
-    <p id="start-error" role="alert" hidden>Binoculars needs your location to know what's around you. Turn on Location for this site, then tap Start — or try the demo.</p>
+    <img class="mark" src="icons/mark.svg" alt="" width="96" height="96">
+    <h1 class="wordmark">what's over<br>there?</h1>
+    <p class="lead">Point at a view. It names itself.</p>
+    <p class="muted">Towns, peaks and coasts, out to 150 km.</p>
+    <p id="start-error" role="alert" hidden>Can't tell where you are yet. Turn on Location for this site, then tap Start, or try the demo.</p>
     <button id="start-btn" class="primary">Start</button>
-    <button id="demo-btn" class="secondary">Try the demo: Spain → Africa</button>
-    <p class="small">Needs your camera, compass and location. Nothing leaves your phone except
-      map requests to OpenFreeMap, OpenStreetMap and AWS terrain tiles.</p>
+    <button id="demo-btn" class="secondary">Try the demo · Costa del Sol</button>
+    <p class="small muted">Needs your camera, location and motion sensors. Nothing leaves your phone except
+      map requests to OpenFreeMap, OpenStreetMap and AWS terrain tiles, and the app's fonts from Google Fonts.</p>
   </section>
 
   <section id="loading" class="sheet-full" hidden>
@@ -98,19 +102,20 @@
   <section id="settings" class="sheet" hidden>
     <button class="close" data-close="settings">✕</button>
     <h2>Settings</h2>
-    <label class="row"><input id="show-hidden" type="checkbox"> Also show places hidden behind hills</label>
+    <label class="row"><input id="show-hidden" type="checkbox"> Show hidden places</label>
     <label class="row"><input id="show-skyline" type="checkbox"> Show dotted skyline</label>
     <label>Label spread (if labels drift as you turn) <span id="fov-val"></span>
       <input id="fov" type="range" min="40" max="90" step="1"></label>
     <div class="buttons">
       <button id="reset-align" class="secondary">Undo label fix</button>
-      <button id="reload-data" class="secondary">Reload place names</button>
+      <button id="reload-data" class="secondary">Reload places</button>
     </div>
-    <label>Your height above the ground <span id="hag-val"></span>
+    <label>Height above ground <span id="hag-val"></span>
       <input id="hag" type="range" min="1" max="300" step="1"></label>
-    <p class="muted small">Raise this on a balcony, tower or rooftop. You are at <span id="eye-val"></span> above sea level.</p>
+    <p class="muted small">Raise it on a balcony or a ferry deck to see further over the hills. You are at <span id="eye-val"></span> above sea level.</p>
     <p class="muted small">Places © OpenStreetMap contributors, map tiles by OpenFreeMap © OpenMapTiles. Terrain: Mapzen / AWS Terrain Tiles.
       Borders: Natural Earth. Mountains: Wikidata.</p>
+    <p class="about"><img src="icons/mark.svg" alt="" width="20" height="20"> What's Over There?</p>
   </section>
 
   <script type="module" src="js/app.mjs"></script>

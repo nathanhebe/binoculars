@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="272 272 480 480">
+  <defs>
+    <mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <polyline points="100,592 408,592 512,472 616,592 924,592" fill="none" stroke="#000" stroke-width="40" stroke-linejoin="miter" stroke-miterlimit="4"/>
+    </mask>
+  </defs>
+  <path mask="url(#m)" fill="#D4FF3D" d="M512 304.154 A240 240 0 1 0 512 719.846 A240 240 0 1 0 512 304.154 Z"/>
+</svg>
