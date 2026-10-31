@@ -85,7 +85,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .edge-hint .n { display: inline-block; vertical-align: bottom; max-width: calc(50vw - 90px); overflow: hidden; text-overflow: ellipsis; }
 .edge-hint .d { font: 500 11px/18px var(--mono); font-stretch: 87.5%; }
 
-/* A ring at the centre; locked on a place it turns yellow and becomes four corner brackets
+/* A ring at the centre; locked on a place it turns lime and becomes four corner brackets
    around that place's dot. */
 #reticle {
   position: fixed; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px;
