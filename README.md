@@ -1,4 +1,4 @@
-# Binoculars
+# What's Over There?
 
 Point your phone at a view and see which towns, peaks, landmarks and countries you're looking at,
 allowing for hills and the curve of the earth. Standing on the Costa del Sol looking out to sea?
@@ -13,7 +13,7 @@ full screen.
   the view.
 - The banner at the top names the continent and country you're pointing at, and a country hidden
   beyond the horizon. Labels show places you can actually see; things hidden by hills or the curve
-  of the earth are left out (Settings → *Also show places hidden behind hills* greys them in).
+  of the earth are left out (Settings → *Show hidden places* greys them in).
   Zoomed in to 2× or more, places past the curve of the earth are greyed in anyway, tagged
   "Beyond horizon" — looking across the sea to Morocco, that is what there is to name — while
   places behind hills still follow the setting. When nothing is labelled the way you face, a note
@@ -40,8 +40,8 @@ full screen.
   kinds instead. Chips start off and are remembered. When a chip is on and none of
   its places is in the picture, a note says so ("No food places this way"). Tap one of these places for its
   opening hours and website, when OpenStreetMap has them.
-- On a balcony or tower, raise *Your height above the ground* in Settings.
-- No phone? **Try the demo: Spain → Africa** looks from Marbella across to Morocco; drag or use
+- On a balcony or tower, raise *Height above ground* in Settings.
+- No phone? **Try the demo · Costa del Sol** looks from Marbella across to Morocco; drag or use
   the arrow keys to look around.
 
 ## How it works
