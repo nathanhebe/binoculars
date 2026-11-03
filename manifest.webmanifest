@@ -1,16 +1,16 @@
 {
-  "name": "Binoculars",
-  "short_name": "Binoculars",
-  "description": "Point your phone at a view and see which towns, peaks and countries you're looking at.",
+  "name": "What's Over There?",
+  "short_name": "Over There",
+  "description": "Point your phone at a view and it names the towns, peaks and coasts you're looking at.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
   "orientation": "any",
-  "background_color": "#0b1220",
-  "theme_color": "#0b1220",
+  "background_color": "#0A1418",
+  "theme_color": "#0A1418",
   "icons": [
     { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
   ]
 }

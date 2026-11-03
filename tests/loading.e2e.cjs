@@ -143,7 +143,7 @@ const fewestLabels = async (p) => {
   // 3. Fault: when location is refused or unavailable, the browser's own error text appears in
   // a passing message instead of plain advice on the start screen. The page's geolocation is
   // replaced so each refusal is the same every run.
-  const ADVICE = 'Binoculars needs your location to know what\'s around you. Turn on Location for this site, then tap Start — or try the demo.';
+  const ADVICE = 'Can\'t tell where you are yet. Turn on Location for this site, then tap Start, or try the demo.';
   for (const [code, raw] of [[1, 'User denied Geolocation'], [2, 'Position update is unavailable']]) {
     const c3 = await b.newContext({ viewport: { width: 430, height: 860 } });
     await c3.addInitScript(([code, raw]) => {

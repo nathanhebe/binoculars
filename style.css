@@ -1,10 +1,16 @@
 :root {
-  --bg: #0b1220;
-  --panel: rgba(12, 18, 32, 0.92);
-  --text: #f4f6fb;
-  --muted: #9aa6bd;
-  --accent: #ffcf4a;
-  --hidden: #7d8799;
+  /* What's Over There? brand: Ink ground, Daylight text, Haze captions (on Ink only), Fix for the
+     locked target and primary actions, never for a kind of place. */
+  --bg: #0A1418;
+  --chip: rgba(10, 20, 24, 0.72);
+  --panel: rgba(10, 20, 24, 0.86);
+  --sheet: #0A1418;
+  --text: #F5F7F2;
+  --muted: #9FB0B3;
+  --accent: #D4FF3D;
+  --halo: rgba(10, 20, 24, 0.75);
+  --sans: Archivo, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mono: "Martian Mono", ui-monospace, Menlo, monospace;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -12,7 +18,7 @@
 * { box-sizing: border-box; }
 html, body {
   margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
-  font: 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.45 var(--sans);
   -webkit-user-select: none; user-select: none; touch-action: none;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -29,22 +35,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
    once placed (class "on") and fade out before they are hidden. */
 .label {
   position: absolute; left: 0; top: 0; pointer-events: none; opacity: 0; transition: opacity 0.15s;
-  padding: 2px 4px; border: 0; background: none; color: #fff; text-align: left; white-space: nowrap;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.9);
+  padding: 2px 4px; border: 0; background: none; color: var(--text); text-align: left; white-space: nowrap;
+  -webkit-text-stroke: 3.5px var(--halo); paint-order: stroke fill;
   --o: 1;
 }
 .label.on { opacity: var(--o); pointer-events: auto; }
-.label .n { display: block; font-weight: 600; font-size: 16px; line-height: 1.2; }
+.label .n { display: block; font-weight: 600; font-size: 17px; line-height: 1.2; }
 .label .m {
-  display: block; font-size: 11px; line-height: 14px; letter-spacing: 0.06em; text-transform: uppercase;
-  color: #dfe5f0;
+  display: block; font: 500 10.5px/14px var(--mono); font-stretch: 87.5%; letter-spacing: 0.02em;
+  text-transform: uppercase; color: var(--text);
 }
 .label.mid { --o: 0.9; }
-.label.mid .n { font-size: 14px; }
+.label.mid .n { font-size: 15px; }
 .label.far { --o: 0.75; }
-.label.far .n { font-size: 12px; }
-.label.hidden-place.on { opacity: calc(var(--o) * 0.6); }
-.label.hidden-place .n { color: #c3cad8; font-style: italic; }
+.label.far .n { font-size: 13px; font-stretch: 87.5%; }
+.label.hidden-place.on { opacity: calc(var(--o) * 0.55); }
+.label.hidden-place .n { font-style: italic; }
 
 #banner {
   position: fixed; top: calc(var(--safe-top) + 10px); left: 50%; transform: translateX(-50%);
@@ -52,9 +58,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--panel); text-align: center; pointer-events: none;
 }
 /* Two lines at most: the continent, then the country and one short note, clipped not wrapped. */
-#banner-continent { font-size: 22px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#banner-continent { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #banner-line { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#banner-country { color: var(--accent); font-weight: 600; }
+#banner-country { color: var(--text); font-weight: 600; }
 #banner-note { color: var(--muted); }
 #banner-country:not(:empty) + #banner-note:not(:empty)::before { content: ' · '; }
 
@@ -62,25 +68,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #empty {
   position: fixed; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px);
   display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 16px;
-  background: var(--panel); font-size: 13px; color: #dfe5f0; text-align: center;
+  background: var(--panel); font-size: 13px; color: var(--text); text-align: center;
 }
-#empty-show { flex: none; padding: 3px 12px; border-radius: 12px; border: 0; background: var(--accent); color: #111; font-weight: 600; }
+#empty-show { flex: none; padding: 3px 12px; border-radius: 12px; border: 0; background: var(--accent); color: var(--bg); font-weight: 600; }
 
 /* With nothing under the reticle, the nearest place worth turning to just out of view, at that
    edge: "‹ Ceuta 78 km". Placed just under the card below the reticle (app.mjs sets top), clear
    of the horizon's dots; a long name is cut short so the distance always shows. */
 .edge-hint {
   position: fixed; top: 60%; max-width: calc(50% - 14px);
-  padding: 3px 9px; border-radius: 12px; background: rgba(11, 18, 32, 0.45); pointer-events: none;
-  color: #fff; font-size: 13px; font-weight: 600; line-height: 18px; white-space: nowrap;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.9), 0 1px 3px rgba(0, 0, 0, 0.9);
+  padding: 3px 9px; border-radius: 12px; background: var(--chip); pointer-events: none;
+  color: var(--text); font-size: 13px; font-weight: 600; line-height: 18px; white-space: nowrap;
 }
 #edge-left { left: 8px; }
 #edge-right { right: 8px; }
 .edge-hint .n { display: inline-block; vertical-align: bottom; max-width: calc(50vw - 90px); overflow: hidden; text-overflow: ellipsis; }
-.edge-hint .d { font-weight: 400; color: #dfe5f0; }
+.edge-hint .d { font: 500 11px/18px var(--mono); font-stretch: 87.5%; }
 
-/* A ring at the centre; locked on a place it turns yellow and becomes four corner brackets
+/* A ring at the centre; locked on a place it turns lime and becomes four corner brackets
    around that place's dot. */
 #reticle {
   position: fixed; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px;
@@ -88,13 +93,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 #reticle i {
-  position: absolute; width: 10px; height: 10px; border: 0 solid var(--accent); opacity: 0;
+  position: absolute; width: 10px; height: 10px; border: 0 solid var(--accent); opacity: 0; border-width: 2.5px;
   filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
 }
-#reticle i:nth-child(1) { left: 0; top: 0; border-width: 2px 0 0 2px; }
-#reticle i:nth-child(2) { right: 0; top: 0; border-width: 2px 2px 0 0; }
-#reticle i:nth-child(3) { left: 0; bottom: 0; border-width: 0 0 2px 2px; }
-#reticle i:nth-child(4) { right: 0; bottom: 0; border-width: 0 2px 2px 0; }
+#reticle i:nth-child(1) { left: 0; top: 0; border-right-width: 0; border-bottom-width: 0; }
+#reticle i:nth-child(2) { right: 0; top: 0; border-left-width: 0; border-bottom-width: 0; }
+#reticle i:nth-child(3) { left: 0; bottom: 0; border-right-width: 0; border-top-width: 0; }
+#reticle i:nth-child(4) { right: 0; bottom: 0; border-left-width: 0; border-top-width: 0; }
 #reticle.locked {
   width: 34px; height: 34px; margin: -17px 0 0 -17px; border-color: transparent; box-shadow: none;
   animation: snap 0.16s ease-out;
@@ -106,15 +111,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #target {
   position: fixed; left: 50%; top: 50%; transform: translateX(-50%); max-width: calc(100% - 32px);
   padding: 2px 8px; border: 0; background: none; text-align: center; white-space: nowrap;
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.9);
+  -webkit-text-stroke: 3.5px var(--halo); paint-order: stroke fill;
 }
 #target span { display: block; overflow: hidden; text-overflow: ellipsis; }
 #target span:empty { display: none; }
-#target .t-name { font-size: 18px; font-weight: 600; }
-#target .t-meta { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #dfe5f0; }
-#target .t-where { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+#target .t-name { font-size: 19px; font-weight: 650; line-height: 24px; }
+#target .t-meta { font: 500 10.5px/16px var(--mono); font-stretch: 87.5%; letter-spacing: 0.02em; text-transform: uppercase; }
+#target .t-where { font-size: 11px; line-height: 16px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
 #target.sky { pointer-events: none; }
-#target.sky .t-name { font-size: 14px; font-weight: 500; color: #dfe5f0; }
+#target.sky .t-name { font-size: 14px; font-weight: 500; }
 
 #hud {
   position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(var(--safe-bottom) + 12px);
@@ -122,33 +127,33 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
 }
 /* A fixed width that holds the widest heading ("WNW 292°"), so the buttons never shift as you turn. */
-#readout { flex: none; width: 92px; margin-right: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
-#heading { display: block; font-size: 17px; font-weight: 700; }
-#pitch { display: block; font-size: 12px; color: var(--muted); }
+#readout { flex: none; width: 104px; margin-right: auto; font-family: var(--mono); font-stretch: 87.5%; white-space: nowrap; }
+#heading { display: block; font-size: 15px; font-weight: 600; line-height: 20px; }
+#pitch { display: block; font-size: 10.5px; line-height: 14px; color: var(--text); opacity: 0.75; }
 #tools { display: flex; flex: none; gap: 6px; }
 #hud button {
   min-width: 42px; height: 40px; padding: 0 10px; border-radius: 20px; border: 0;
-  background: rgba(20, 26, 40, 0.8);
+  background: var(--panel);
 }
 /* One round zoom button in the corner; it shows the factor and steps 1×, 2×, 4×, 8×. */
 #hud #zoom-btn {
-  flex: none; width: 52px; height: 52px; padding: 0; border-radius: 50%;
-  border: 2px solid var(--accent); font-weight: 700; font-variant-numeric: tabular-nums;
+  flex: none; width: 56px; height: 56px; padding: 0; border-radius: 50%;
+  border: 2px solid var(--accent); font: 600 14px var(--mono); font-stretch: 87.5%;
 }
 /* Phones narrower than 430 px: tighten the bar. */
 @media (max-width: 429px) {
   #hud { padding-left: 12px; padding-right: 12px; gap: 4px; }
-  #readout { width: 82px; }
-  #heading { font-size: 15px; }
+  #readout { width: 92px; }
+  #heading { font-size: 13.5px; }
   #tools { gap: 4px; }
   #hud button { min-width: 38px; padding: 0 8px; }
 }
-#align-btn.on { background: var(--accent); color: #111; }
+#align-btn.on { background: var(--accent); color: var(--bg); }
 
 #align-hint, #toast {
   max-width: 100%; padding: 10px 14px; border-radius: 12px; background: var(--panel); text-align: center;
 }
-#align-hint button { margin-left: 8px; padding: 4px 12px; border-radius: 14px; border: 0; background: var(--accent); color: #111; }
+#align-hint button { margin-left: 8px; padding: 4px 12px; border-radius: 14px; border: 0; background: var(--accent); color: var(--bg); font-weight: 600; }
 #toast { font-size: 13px; }
 
 /* Messages, the label-fix hint and the place-name line stack just above the controls, in front of
@@ -167,8 +172,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--panel); font-size: 12.5px;
 }
 #cam-off[hidden] { display: none; }
-#cam-retry, #status-retry { padding: 3px 12px; border-radius: 12px; border: 0; background: var(--accent); color: #111; font-weight: 600; }
-#status-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255, 255, 255, 0.12); }
+#cam-retry, #status-retry { padding: 3px 12px; border-radius: 12px; border: 0; background: var(--accent); color: var(--bg); font-weight: 600; }
+#status-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(245, 247, 242, 0.12); }
 #status-bar > div { height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
 #status.failed { color: var(--text); }
 #status.failed #status-bar { display: none; }
@@ -185,18 +190,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 #chips[hidden] { display: none; }
 #chips button {
-  display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.18); background: var(--panel); color: var(--text); font-size: 13px;
+  display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 12px; border-radius: 18px;
+  border: 1px solid rgba(245, 247, 242, 0.16); background: var(--chip); color: var(--text); font-size: 13px; font-weight: 500;
 }
 #chips button::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--c); opacity: 0.45; }
-#chips button[aria-pressed='true'] { border-color: var(--c); background: #1a2338; font-weight: 600; }
+#chips button[aria-pressed='true'] { border-color: var(--c); background: var(--panel); font-weight: 600; }
 #chips button[aria-pressed='true']::before { opacity: 1; }
 /* One colour per kind of place, on its chip and before its labels' names (js/app.mjs CAT_COLOURS). */
-#chips [data-cat='food'], .label.k-food { --c: #ff8a5c; }
-#chips [data-cat='shops'], .label.k-shops { --c: #d08cff; }
-#chips [data-cat='travel'], .label.k-travel { --c: #5cc8ff; }
-#chips [data-cat='sights'], .label.k-sights { --c: #7ee08a; }
-#chips [data-cat='stay'], .label.k-stay { --c: #ffd166; }
+#chips [data-cat='food'], .label.k-food { --c: #FF8A4C; }
+#chips [data-cat='shops'], .label.k-shops { --c: #FFC23D; }
+#chips [data-cat='travel'], .label.k-travel { --c: #4CC9F0; }
+#chips [data-cat='sights'], .label.k-sights { --c: #FF6FAE; }
+#chips [data-cat='stay'], .label.k-stay { --c: #F5F7F2; }
 .label.k-food .n::before, .label.k-shops .n::before, .label.k-travel .n::before, .label.k-sights .n::before, .label.k-stay .n::before {
   content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%;
   background: var(--c); vertical-align: 1px;
@@ -207,16 +212,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
   gap: 12px; padding: 24px; text-align: center; background: var(--bg); z-index: 10;
 }
 .sheet-full h1 { margin: 0; font-size: 34px; }
-.sheet-full p { max-width: 420px; margin: 0; color: #c9d1e0; }
-.sheet-full #start-error { padding: 10px 14px; border-radius: 12px; background: #2a2412; color: var(--accent); }
+.sheet-full .wordmark {
+  margin-bottom: 8px; font-size: 44px; line-height: 1; font-weight: 700; font-stretch: 112.5%; letter-spacing: -0.01em;
+}
+.sheet-full .lead { font-size: 19px; line-height: 26px; font-weight: 600; }
+.sheet-full p { max-width: 420px; margin: 0; }
+.sheet-full #start-error { padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--accent); }
 .small { font-size: 12.5px; }
 .muted { color: var(--muted); }
 .primary, .secondary { width: min(340px, 100%); padding: 14px; border-radius: 14px; border: 0; font-weight: 600; }
-.primary { background: var(--accent); color: #111; font-size: 18px; }
-.secondary { background: #1c2740; }
+.primary { background: var(--accent); color: var(--bg); font-size: 18px; }
+.secondary { background: rgba(245, 247, 242, 0.08); }
 
 .spinner {
-  width: 44px; height: 44px; border-radius: 50%; border: 4px solid #22304d; border-top-color: var(--accent);
+  width: 44px; height: 44px; border-radius: 50%; border: 4px solid rgba(245, 247, 242, 0.12); border-top-color: var(--accent);
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -224,27 +233,31 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; max-height: 75%; overflow: auto; z-index: 5;
   padding: 18px 18px calc(var(--safe-bottom) + 18px); border-radius: 18px 18px 0 0;
-  background: #0f1626; -webkit-user-select: text; user-select: text; touch-action: pan-y;
+  background: var(--sheet); -webkit-user-select: text; user-select: text; touch-action: pan-y;
 }
 /* An open sheet stands alone: the bar, the card, the empty-view note and the edge hints step out of the way.
    visibility, not display, so the bar keeps its place and messages still sit just above it. */
 body.sheet-open #hud, body.sheet-open #target, body.sheet-open #reticle, body.sheet-open #empty, body.sheet-open .edge-hint { visibility: hidden; }
 /* Only passing messages stay in front of a sheet; the lasting lines would cover its rows. */
 body.sheet-open #status, body.sheet-open #cam-off, body.sheet-open #align-hint, body.sheet-open #chips, body.sheet-open #chip-hint, body.sheet-open #there { visibility: hidden; }
-.sheet h2 { margin: 0 36px 2px 0; font-size: 21px; }
+.sheet h2 { margin: 0 36px 2px 0; font-size: 24px; line-height: 28px; letter-spacing: -0.01em; }
 #info-lead { margin: 0 36px 0 0; font-size: 18px; line-height: 1.4; }
-#info-name { font-size: 21px; }
+#info-name { font-size: 24px; line-height: 28px; letter-spacing: -0.01em; }
 .sheet .close {
   position: absolute; right: 12px; top: 12px; width: 32px; height: 32px; border-radius: 50%;
-  border: 0; background: #22304d;
+  border: 0; background: rgba(245, 247, 242, 0.1);
 }
 .sheet dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 14px 0; }
-.sheet dt { color: var(--muted); }
+.sheet dt { align-self: baseline; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
 .sheet dd { margin: 0; overflow-wrap: anywhere; }
 /* A row that can be left out (hours, height) is a div; its dt and dd stay in the grid. */
 .sheet dl > div { display: contents; }
 .sheet .links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
-.sheet a { color: var(--accent); }
+.sheet a { color: var(--text); }
+.sheet a:hover { color: var(--accent); }
+#info-distance, #info-bearing, #info-height { font: 500 17px var(--mono); font-stretch: 87.5%; }
+.sheet .about { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--muted); font-size: 12.5px; }
+.sheet input { accent-color: var(--accent); }
 .sheet label { display: block; margin-top: 14px; }
 .sheet label.row { display: flex; align-items: center; gap: 8px; }
 .sheet input[type=range] { width: 100%; margin-top: 6px; }

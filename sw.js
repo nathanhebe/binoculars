@@ -1,13 +1,13 @@
 // Offline shell plus a cache of terrain tiles. Place names come from the network (and the
 // app's own caches, which expire), so they are never served stale from here.
-const SHELL = 'binoculars-shell-v1';
+const SHELL = 'binoculars-shell-v2';
 const TILES = 'binoculars-tiles-v1';
 // The app's own saved place names (js/tiles.mjs), 30 days each; same name as there.
 const KEEP = [SHELL, TILES, 'binoculars-places-v1'];
 const FILES = [
   './', 'index.html', 'style.css', 'manifest.webmanifest', 'assets/countries.json', 'assets/places-major.json',
   'assets/peaks-major.json', 'js/app.mjs', 'js/geo.mjs', 'js/terrain.mjs', 'js/places.mjs', 'js/tiles.mjs', 'js/pois.mjs', 'js/countries.mjs', 'js/orientation.mjs',
-  'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-512.png',
+  'icons/icon.svg', 'icons/mark.svg', 'icons/icon-180.png', 'icons/icon-512.png',
 ];
 
 self.addEventListener('install', (e) => {
